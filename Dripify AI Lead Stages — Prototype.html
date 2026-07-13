@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dripify · AI Lead Stages Prototype</title>
+<style>
+  :root{
+    --brand:#6C5CE7; --brand-2:#8B7BF0; --brand-soft:#F1EEFF; --brand-softer:#F7F5FF;
+    --bg:#F6F7FB; --card:#FFFFFF; --line:#ECEDF3; --line-2:#E2E3EC;
+    --ink:#1E1F2B; --muted:#6B6C7E; --muted-2:#9A9BAC;
+    --green:#16A34A; --green-s:#E7F6ED; --red:#DC2626; --red-s:#FCEBEB;
+    --amber:#E08A0B; --amber-s:#FCF2E1; --violet:#7C5CFC; --violet-s:#F0EBFF;
+    --gray:#6B7280; --gray-s:#EEF0F3; --teal:#0D9488; --teal-s:#E3F5F2;
+    --shadow:0 1px 2px rgba(20,20,40,.04),0 6px 20px rgba(20,20,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;-webkit-font-smoothing:antialiased}
+  .app{display:flex;min-height:100vh}
+  /* sidebar */
+  .side{width:212px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh}
+  .logo{display:flex;align-items:center;gap:9px;padding:6px 8px 16px}
+  .logo .mark{width:26px;height:26px;border-radius:8px;background:conic-gradient(from 210deg,var(--brand),var(--violet),var(--brand-2));display:inline-block}
+  .logo b{font-size:17px;letter-spacing:.2px}
+  .nav{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+  .nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:500;cursor:pointer;user-select:none}
+  .nav a .ic{width:17px;height:17px;opacity:.85}
+  .nav a:hover{background:var(--brand-softer);color:var(--ink)}
+  .nav a.active{background:var(--brand-soft);color:var(--brand);font-weight:600}
+  .side .spacer{flex:1}
+  .trial{border:1px solid var(--line-2);border-radius:12px;padding:12px;text-align:center}
+  .trial small{color:var(--muted-2)}
+  .trial .btn{margin-top:8px;width:100%}
+  /* main */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{height:56px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+  .topbar h1{font-size:16px;margin:0;font-weight:600}
+  .pill-proto{font-size:11px;color:var(--brand);background:var(--brand-soft);border-radius:999px;padding:4px 10px;font-weight:600}
+  .story-banner{background:var(--brand-softer);border-bottom:1px solid var(--line);padding:9px 20px;color:var(--muted);font-size:12.5px}
+  .story-banner b{color:var(--brand)}
+  .screen{display:none;flex:1;min-height:0}
+  .screen.active{display:flex}
+  /* ---------- INBOX ---------- */
+  .conv-list{width:296px;border-right:1px solid var(--line);background:#fff;overflow:auto}
+  .conv-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .conv-head b{font-size:14px}
+  .conv{display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .conv:hover{background:var(--brand-softer)}
+  .conv.active{background:var(--brand-soft)}
+  .avatar{width:38px;height:38px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:13px}
+  .conv .who{min-width:0;flex:1}
+  .conv .who .n{font-weight:600;display:flex;align-items:center;gap:6px}
+  .conv .who .m{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .chat{flex:1;display:flex;flex-direction:column;background:#fff;min-width:0}
+  .chat-head{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .chat-head .title b{display:block}
+  .chat-head .title span{color:var(--muted);font-size:12.5px}
+  .thread{flex:1;overflow:auto;padding:22px 24px;display:flex;flex-direction:column;gap:14px;background:linear-gradient(#fff,#fbfbfe)}
+  .msg{max-width:74%;padding:10px 13px;border-radius:14px;line-height:1.45}
+  .msg.them{align-self:flex-start;background:#F1F2F7;border-bottom-left-radius:5px}
+  .msg.me{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:5px}
+  .msg .t{font-size:10.5px;opacity:.65;margin-top:5px}
+  .paused-note{align-self:center;font-size:11.5px;color:var(--amber);background:var(--amber-s);padding:5px 11px;border-radius:999px}
+  .composer{border-top:1px solid var(--line);padding:12px 18px;display:flex;gap:10px}
+  .composer input{flex:1;border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font:inherit;background:#fff}
+  /* right lead panel */
+  .lead-panel{width:312px;border-left:1px solid var(--line);background:#fff;overflow:auto;padding:18px 16px}
+  .lp-head{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+  .lp-head .n{font-weight:700;font-size:15px}
+  .lp-head .s{color:var(--muted);font-size:12.5px}
+  .section-lbl{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin:6px 2px 9px}
+  .stage-card{border:1px solid var(--line-2);border-radius:13px;padding:13px;background:var(--brand-softer)}
+  .ai-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-badge{font-size:10.5px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--brand),var(--violet));border-radius:6px;padding:3px 7px;letter-spacing:.3px}
+  .ai-row .lab{font-size:12px;color:var(--muted)}
+  .conf{margin-left:auto;font-weight:700;font-size:12px;color:var(--brand)}
+  .bar{height:6px;border-radius:999px;background:#E7E4FA;overflow:hidden;margin:2px 0 10px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--violet))}
+  .reason{font-size:12.5px;color:var(--muted);background:#fff;border:1px dashed var(--line-2);border-radius:9px;padding:8px 10px;margin-bottom:12px}
+  .suggested-stage{display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  .stage-actions{display:flex;gap:8px}
+  .needs-review{border:1px solid var(--amber);background:var(--amber-s);border-radius:13px;padding:13px}
+  .needs-review .hl{font-weight:700;color:var(--amber);display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .needs-review p{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+  .set-row{display:flex;align-items:center;gap:8px}
+  .confirmed-stage{display:flex;align-items:center;gap:9px;border:1px solid var(--line-2);border-radius:11px;padding:11px 12px}
+  .confirmed-stage .ok{color:var(--green);font-weight:700;font-size:12px;margin-left:auto}
+  .tagwrap{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+  .tag{font-size:12px;padding:4px 9px;border-radius:999px;background:var(--gray-s);color:var(--muted);border:1px solid var(--line-2)}
+  .addtag{font-size:12px;padding:4px 9px;border-radius:999px;border:1px dashed var(--line-2);color:var(--muted);cursor:pointer;background:#fff}
+  /* ---------- LEADS ---------- */
+  .leads{flex:1;overflow:auto;padding:20px 22px}
+  .status-strip{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 15px;min-width:112px;box-shadow:var(--shadow)}
+  .stat b{display:block;font-size:19px}
+  .stat span{color:var(--muted);font-size:12px}
+  .leads-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .select{position:relative}
+  .select>button{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line-2);border-radius:10px;padding:9px 12px;font:inherit;cursor:pointer;color:var(--ink)}
+  .select .menu{position:absolute;z-index:30;top:44px;left:0;background:#fff;border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:200px;display:none}
+  .select .menu.open{display:block}
+  .select .menu div{padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:9px}
+  .select .menu div:hover{background:var(--brand-softer)}
+  .spacer-h{flex:1}
+  .tbl{width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border-collapse:collapse}
+  .tbl th{ text-align:left;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted-2);font-weight:700;padding:12px 14px;border-bottom:1px solid var(--line);background:#FbFbFd}
+  .tbl td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl tr.hiddenrow{display:none}
+  .lead-cell{display:flex;align-items:center;gap:11px}
+  .lead-cell .n{font-weight:600}
+  .lead-cell .s{color:var(--muted);font-size:12px}
+  .silence{color:var(--amber);font-size:12.5px;font-weight:600}
+  .muted-td{color:var(--muted);font-size:12.5px}
+  input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand);cursor:pointer}
+  /* chips */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.ai::after{content:"AI";font-size:9px;font-weight:800;color:#fff;background:linear-gradient(90deg,var(--brand),var(--violet));border-radius:5px;padding:1px 4px;margin-left:2px}
+  .c-interested{background:var(--green-s);color:var(--green)} .c-interested .dot{background:var(--green)}
+  .c-notinterested{background:var(--red-s);color:var(--red)} .c-notinterested .dot{background:var(--red)}
+  .c-ghosted{background:var(--amber-s);color:var(--amber)} .c-ghosted .dot{background:var(--amber)}
+  .c-meeting{background:var(--violet-s);color:var(--violet)} .c-meeting .dot{background:var(--violet)}
+  .c-new{background:var(--gray-s);color:var(--gray)} .c-new .dot{background:var(--gray)}
+  .c-objection{background:var(--amber-s);color:var(--amber)} .c-objection .dot{background:var(--amber)}
+  /* buttons */
+  .btn{border:none;border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;background:var(--brand);color:#fff}
+  .btn:hover{filter:brightness(1.05)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line-2)}
+  .btn.sm{padding:7px 11px;font-size:12.5px;border-radius:9px}
+  .btn.block{width:100%}
+  /* bulk bar */
+  .bulkbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(140%);transition:.25s;background:#1E1F2B;color:#fff;border-radius:14px;padding:11px 14px;display:flex;align-items:center;gap:14px;box-shadow:0 12px 30px rgba(0,0,0,.25);z-index:50}
+  .bulkbar.show{transform:translateX(-50%) translateY(0)}
+  .bulkbar b{font-size:13px}
+  /* modal + toast */
+  .overlay{position:fixed;inset:0;background:rgba(20,20,40,.34);display:none;align-items:center;justify-content:center;z-index:60}
+  .overlay.open{display:flex}
+  .modal{background:#fff;border-radius:16px;width:420px;max-width:92vw;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal h3{margin:0 0 6px;font-size:17px}
+  .modal p{margin:0 0 16px;color:var(--muted);font-size:13px}
+  .modal label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin:12px 0 6px}
+  .modal select,.modal input[type=number]{width:100%;border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font:inherit;background:#fff}
+  .modal .rule{background:var(--brand-softer);border:1px solid var(--line);border-radius:12px;padding:14px;line-height:1.7}
+  .modal .rule input{width:56px;display:inline-block;text-align:center;padding:6px}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+  .toast{position:fixed;right:22px;bottom:22px;background:#1E1F2B;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);transform:translateY(140%);transition:.25s;z-index:70;font-size:13px;display:flex;align-items:center;gap:9px}
+  .toast.show{transform:translateY(0)}
+  .toast .ck{color:#4ADE80;font-weight:800}
+  .stage-menu{position:absolute;z-index:40;background:#fff;border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:190px;display:none}
+  .stage-menu.open{display:block}
+  .stage-menu div{padding:8px 10px;border-radius:8px;cursor:pointer}
+  .stage-menu div:hover{background:var(--brand-softer)}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="logo"><span class="mark"></span><b>Dripify</b></div>
+    <nav class="nav">
+      <a data-nav="dash"><span class="ic">▦</span> Dashboard</a>
+      <a data-nav="camp"><span class="ic">◧</span> Campaigns</a>
+      <a data-nav="inbox" class="active"><span class="ic">✉</span> Inbox</a>
+      <a data-nav="leads"><span class="ic">☰</span> Leads</a>
+      <a data-nav="team"><span class="ic">◍</span> Team</a>
+      <a data-nav="settings"><span class="ic">⚙</span> Settings</a>
+    </nav>
+    <div class="spacer"></div>
+    <div class="trial"><small>Advanced plan</small><div class="btn block" style="margin-top:8px">Upgrade</div></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="screenTitle">Inbox</h1>
+      <span class="pill-proto">Prototype</span>
+    </div>
+    <div class="story-banner" id="storyBanner"><b>User Story 1.</b> When a lead replies, the AI suggests a stage with a confidence level. Confirm or correct it in one click.</div>
+
+    <!-- ===== INBOX SCREEN (Story 1) ===== -->
+    <section class="screen active" id="screen-inbox">
+      <div class="conv-list" id="convList"></div>
+      <div class="chat">
+        <div class="chat-head" id="chatHead"></div>
+        <div class="thread" id="thread"></div>
+        <div class="composer"><input placeholder="Write a reply..." /><button class="btn">Send</button></div>
+      </div>
+      <div class="lead-panel" id="leadPanel"></div>
+    </section>
+
+    <!-- ===== LEADS SCREEN (Story 2) ===== -->
+    <section class="screen" id="screen-leads">
+      <div class="leads">
+        <div class="status-strip">
+          <div class="stat"><b>1,240</b><span>All leads</span></div>
+          <div class="stat"><b>612</b><span>In progress</span></div>
+          <div class="stat"><b>158</b><span>Completed</span></div>
+          <div class="stat"><b>96</b><span>Paused</span></div>
+          <div class="stat"><b>41</b><span>Failed</span></div>
+          <div class="stat"><b>73</b><span>Awaiting</span></div>
+        </div>
+
+        <div class="leads-toolbar">
+          <div class="select" id="stageFilter">
+            <button onclick="toggleMenu('stageFilterMenu')"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted-2);display:inline-block"></span> <span id="stageFilterLabel">All stages</span> ▾</button>
+            <div class="menu" id="stageFilterMenu">
+              <div onclick="setStageFilter('All stages')">All stages</div>
+              <div onclick="setStageFilter('Ghosted')"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--amber)"></span> Ghosted</div>
+              <div onclick="setStageFilter('Interested')"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--green)"></span> Interested</div>
+              <div onclick="setStageFilter('New lead')"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--gray)"></span> New lead</div>
+            </div>
+          </div>
+          <div class="select"><button>All tags ▾</button></div>
+          <div class="spacer-h"></div>
+          <button class="btn ghost sm" onclick="openModal('ruleModal')">⚙ Ghosted rule</button>
+        </div>
+
+        <table class="tbl">
+          <thead><tr>
+            <th style="width:34px"><input type="checkbox" id="selAll" onclick="toggleAll(this)"></th>
+            <th>Lead</th><th>Stage</th><th>Last activity</th><th>Campaign</th>
+          </tr></thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+        <p class="muted-td" id="filterHint" style="margin-top:12px"></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- bulk bar -->
+<div class="bulkbar" id="bulkbar"><b><span id="selCount">0</span> selected</b><button class="btn sm" onclick="openModal('addModal')">Add to campaign</button><button class="btn ghost sm" onclick="clearSel()">Clear</button></div>
+
+<!-- add to campaign modal -->
+<div class="overlay" id="addModal">
+  <div class="modal">
+    <h3>Add to campaign</h3>
+    <p>Move the selected Ghosted leads into a re engagement sequence. This reuses Dripify's existing add to campaign flow.</p>
+    <label>Campaign</label>
+    <select id="campSelect">
+      <option>Re engagement Q3</option>
+      <option>Warm up sequence</option>
+      <option>New campaign...</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn" onclick="confirmAdd()">Add leads</button>
+    </div>
+  </div>
+</div>
+
+<!-- ghosted rule modal -->
+<div class="overlay" id="ruleModal">
+  <div class="modal">
+    <h3>Ghosted rule</h3>
+    <p>Set when the AI marks a lead as Ghosted. Silence is time based, it is not read from a message.</p>
+    <div class="rule">Mark a lead as <b style="color:var(--amber)">Ghosted</b> when there is no reply within <input type="number" value="14" min="1" id="ruleDays"> days after the invite is accepted or the last message is sent.</div>
+    <label style="margin-top:14px">Skip leads already in a positive stage</label>
+    <select><option>Interested, Meeting booked</option><option>Interested only</option><option>Do not skip</option></select>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('ruleModal')">Cancel</button>
+      <button class="btn" onclick="saveRule()">Save rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- stage change menu (shared) -->
+<div class="stage-menu" id="stageMenu"></div>
+<!-- toast -->
+<div class="toast" id="toast"><span class="ck">✓</span><span id="toastMsg"></span></div>
+
+<script>
+/* ---------- shared stage meta ---------- */
+const STAGES = {
+  "New lead":{cls:"c-new"}, "Interested":{cls:"c-interested"}, "Not interested":{cls:"c-notinterested"},
+  "Objection":{cls:"c-objection"}, "Meeting booked":{cls:"c-meeting"}, "Ghosted":{cls:"c-ghosted"}
+};
+function chip(stage, ai){ if(!stage) return ""; const m=STAGES[stage]||{cls:"c-new"}; return `<span class="chip ${m.cls} ${ai?'ai':''}"><span class="dot"></span>${stage}</span>`; }
+function toast(msg){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2600); }
+
+/* ---------- nav ---------- */
+const BANNERS={
+  inbox:'<b>User Story 1.</b> When a lead replies, the AI suggests a stage with a confidence level. Confirm or correct it in one click.',
+  leads:'<b>User Story 2.</b> Leads that go silent are marked Ghosted automatically. Filter them and send them into a re engagement campaign.'
+};
+document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>{
+  const nav=a.dataset.nav; if(nav!=='inbox'&&nav!=='leads') return;
+  document.querySelectorAll('.nav a').forEach(x=>x.classList.remove('active')); a.classList.add('active');
+  document.getElementById('screen-inbox').classList.toggle('active',nav==='inbox');
+  document.getElementById('screen-leads').classList.toggle('active',nav==='leads');
+  document.getElementById('screenTitle').textContent = nav==='inbox'?'Inbox':'Leads';
+  document.getElementById('storyBanner').innerHTML = BANNERS[nav];
+}));
+
+/* ================= STORY 1 : INBOX ================= */
+const COLORS=['#6C5CE7','#0D9488','#DC2626','#E08A0B','#2563EB','#7C5CFC'];
+const convs=[
+  {id:'olena',name:'Olena Kovalenko',title:'Head of Growth, Netpeak',color:'#6C5CE7',
+   preview:'Sounds interesting, can you send pricing...',
+   thread:[['me','Hi Olena, saw you scaled Netpeak’s outbound. Open to a quick idea on lead stages?','Mon'],
+           ['them','Sounds interesting, can you send pricing and maybe a quick call next week?','9:12']],
+   state:'suggested', stage:'Interested', conf:92, reason:'Lead asked for pricing and proposed a call next week.'},
+  {id:'mark',name:'Mark Thompson',title:'Founder, Bright Labs',color:'#0D9488',
+   preview:'👍',
+   thread:[['me','Hi Mark, would love to show you how teams auto stage their leads.','Tue'],
+           ['them','👍','8:40']],
+   state:'review'},
+  {id:'priya',name:'Priya Shah',title:'RevOps, Contlo',color:'#DC2626',
+   preview:'Great, let’s book a slot on Thursday',
+   thread:[['me','Happy to walk you through it, does Thursday work?','Wed'],
+           ['them','Great, let’s book a slot on Thursday','10:05']],
+   state:'confirmed', stage:'Meeting booked'},
+  {id:'david',name:'David Ruiz',title:'Sales Lead, Kompas',color:'#E08A0B',
+   preview:'We already use another tool, not now',
+   thread:[['me','Hi David, quick question on how you track replies today?','Wed'],
+           ['them','We already use another tool, not now','16:20']],
+   state:'suggested', stage:'Not interested', conf:88, reason:'Lead says they use another tool and it is not the right time.'}
+];
+let activeConv='olena';
+
+function renderConvList(){
+  document.getElementById('convList').innerHTML =
+    `<div class="conv-head"><b>Conversations</b><span class="muted-td">Refresh</span></div>` +
+    convs.map(c=>{
+      const badge = c.state==='review'? `<span class="chip c-new" style="font-size:10px">Needs review</span>`
+                    : chip(c.stage, c.state==='suggested');
+      return `<div class="conv ${c.id===activeConv?'active':''}" onclick="selectConv('${c.id}')">
+        <div class="avatar" style="background:${c.color}">${c.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>
+        <div class="who"><div class="n">${c.name.split(' ')[0]} ${c.name.split(' ')[1][0]}. ${badge}</div>
+        <div class="m">${c.preview}</div></div></div>`;
+    }).join('');
+}
+function selectConv(id){ activeConv=id; renderConvList(); renderChat(); renderPanel(); }
+function renderChat(){
+  const c=convs.find(x=>x.id===activeConv);
+  document.getElementById('chatHead').innerHTML =
+    `<div class="avatar" style="background:${c.color}">${c.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>
+     <div class="title"><b>${c.name}</b><span>${c.title}</span></div>`;
+  document.getElementById('thread').innerHTML =
+    c.thread.map(m=>`<div class="msg ${m[0]}">${m[1]}<div class="t">${m[2]}</div></div>`).join('') +
+    `<div class="paused-note">Sequence paused, lead replied</div>`;
+}
+function renderPanel(){
+  const c=convs.find(x=>x.id===activeConv);
+  let body='';
+  if(c.state==='suggested'){
+    body=`<div class="section-lbl">Stage</div>
+     <div class="stage-card">
+       <div class="ai-row"><span class="ai-badge">AI SUGGESTS</span><span class="lab">based on the reply</span><span class="conf">${c.conf}%</span></div>
+       <div class="bar"><i style="width:${c.conf}%"></i></div>
+       <div class="suggested-stage">${chip(c.stage,false)}</div>
+       <div class="reason">${c.reason}</div>
+       <div class="stage-actions">
+         <button class="btn sm" style="flex:1" onclick="confirmStage()">Confirm</button>
+         <button class="btn ghost sm" onclick="openStageMenu(event)">Change</button>
+       </div>
+     </div>`;
+  } else if(c.state==='review'){
+    body=`<div class="section-lbl">Stage</div>
+     <div class="needs-review">
+       <div class="hl">⚠ Needs review</div>
+       <p>The reply is ambiguous, so the AI did not set a stage. Pick one to keep the funnel accurate.</p>
+       <div class="set-row"><button class="btn ghost sm" style="flex:1" onclick="openStageMenu(event)">Set stage</button></div>
+     </div>`;
+  } else {
+    body=`<div class="section-lbl">Stage</div>
+     <div class="confirmed-stage">${chip(c.stage,false)}<span class="ok">Confirmed</span></div>`;
+  }
+  document.getElementById('leadPanel').innerHTML =
+    `<div class="lp-head"><div class="avatar" style="background:${c.color};width:44px;height:44px">${c.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>
+       <div><div class="n">${c.name}</div><div class="s">${c.title}</div></div></div>` +
+    body +
+    `<div class="section-lbl" style="margin-top:20px">Tags</div>
+     <div class="tagwrap"><span class="tag">High priority</span><span class="tag">SaaS</span><span class="addtag">+ Add tag</span></div>`;
+}
+function confirmStage(){ const c=convs.find(x=>x.id===activeConv); c.state='confirmed'; toast('Stage set to '+c.stage); renderConvList(); renderPanel(); }
+function openStageMenu(e){
+  e.stopPropagation();
+  const menu=document.getElementById('stageMenu');
+  menu.innerHTML=Object.keys(STAGES).map(s=>`<div onclick="pickStage('${s}')">${chip(s,false)}</div>`).join('');
+  const r=e.target.getBoundingClientRect();
+  menu.style.left=Math.min(r.left,window.innerWidth-210)+'px'; menu.style.top=(r.bottom+6)+'px'; menu.classList.add('open');
+}
+function pickStage(s){ const c=convs.find(x=>x.id===activeConv); c.stage=s; c.state='confirmed'; document.getElementById('stageMenu').classList.remove('open'); toast('Stage set to '+s+' (manual)'); renderConvList(); renderPanel(); }
+
+/* ================= STORY 2 : LEADS ================= */
+const leads=[
+  {n:'Anna Melnyk',s:'CMO, Boosta',c:'#6C5CE7',stage:'Ghosted',ai:true,act:'No reply for 15 days',camp:'Enterprise Q2'},
+  {n:'Tom Becker',s:'VP Sales, Uplead',c:'#0D9488',stage:'Ghosted',ai:true,act:'No reply for 18 days',camp:'Enterprise Q2'},
+  {n:'Sara Lind',s:'Founder, Nimbly',c:'#DC2626',stage:'Interested',ai:false,act:'Replied 2 days ago',camp:'SMB outbound'},
+  {n:'Diego Alvarez',s:'Growth, Wobb',c:'#E08A0B',stage:'Ghosted',ai:true,act:'No reply for 12 days',camp:'SMB outbound'},
+  {n:'Emma Wright',s:'Head of BD, Loopio',c:'#2563EB',stage:'Ghosted',ai:true,act:'No reply for 21 days',camp:'Enterprise Q2'},
+  {n:'Ravi Patel',s:'RevOps, Zomex',c:'#7C5CFC',stage:'New lead',ai:false,act:'In queue',camp:'SMB outbound'},
+  {n:'Julia Frank',s:'Director, Kanbo',c:'#0D9488',stage:'Ghosted',ai:true,act:'No reply for 16 days',camp:'Enterprise Q2'},
+  {n:'Peter Novak',s:'Sales, Brightflow',c:'#DC2626',stage:'Ghosted',ai:true,act:'No reply for 14 days',camp:'SMB outbound'}
+];
+let stageFilter='All stages';
+function renderLeads(){
+  document.getElementById('leadsBody').innerHTML = leads.map((l,i)=>{
+    const show = stageFilter==='All stages' || l.stage===stageFilter;
+    return `<tr class="${show?'':'hiddenrow'}" data-i="${i}">
+      <td><input type="checkbox" class="rowc" onclick="updateSel()"></td>
+      <td><div class="lead-cell"><div class="avatar" style="background:${l.c};width:34px;height:34px;font-size:12px">${l.n.split(' ').map(x=>x[0]).join('')}</div>
+          <div><div class="n">${l.n}</div><div class="s">${l.s}</div></div></div></td>
+      <td>${chip(l.stage,l.ai)}</td>
+      <td>${l.stage==='Ghosted'?`<span class="silence">${l.act}</span>`:`<span class="muted-td">${l.act}</span>`}</td>
+      <td class="muted-td">${l.camp}</td></tr>`;
+  }).join('');
+  const n=leads.filter(l=>stageFilter==='All stages'||l.stage===stageFilter).length;
+  document.getElementById('filterHint').textContent = stageFilter==='All stages'? `${leads.length} leads` : `${n} leads in stage ${stageFilter}`;
+  clearSel();
+}
+function setStageFilter(s){
+  stageFilter=s; document.getElementById('stageFilterLabel').textContent=s;
+  document.getElementById('stageFilterMenu').classList.remove('open'); renderLeads();
+}
+function toggleMenu(id){ document.getElementById(id).classList.toggle('open'); }
+function toggleAll(box){ document.querySelectorAll('#leadsBody tr:not(.hiddenrow) .rowc').forEach(c=>c.checked=box.checked); updateSel(); }
+function updateSel(){
+  const n=document.querySelectorAll('#leadsBody tr:not(.hiddenrow) .rowc:checked').length;
+  document.getElementById('selCount').textContent=n;
+  document.getElementById('bulkbar').classList.toggle('show',n>0);
+}
+function clearSel(){ document.querySelectorAll('.rowc').forEach(c=>c.checked=false); const sa=document.getElementById('selAll'); if(sa)sa.checked=false; document.getElementById('bulkbar').classList.remove('show'); document.getElementById('selCount').textContent=0; }
+function confirmAdd(){ const n=document.querySelectorAll('#leadsBody tr:not(.hiddenrow) .rowc:checked').length; const camp=document.getElementById('campSelect').value; closeModal('addModal'); clearSel(); toast(n+' leads added to '+camp); }
+function saveRule(){ const d=document.getElementById('ruleDays').value; closeModal('ruleModal'); toast('Ghosted rule saved, '+d+' days'); }
+
+/* ---------- modals ---------- */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#stageMenu')&&!e.target.closest('[onclick*=openStageMenu]')) document.getElementById('stageMenu').classList.remove('open');
+  if(!e.target.closest('#stageFilter')) document.getElementById('stageFilterMenu').classList.remove('open');
+});
+
+/* init */
+renderConvList(); renderChat(); renderPanel(); renderLeads();
+</script>
+</body>
+</html>
