@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Precoro · Invoice/PO matching agentic solution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Design tokens lifted from app.precoro.com (Inter + CSS vars)
+   ============================================================ */
+:root{
+  --primary-900:#1d2452; --primary-800:#343a63; --primary-700:#616686;
+  --primary-600:#8e91a8; --primary-400:#bbbdcb; --primary-300:#d2d3dc;
+  --primary-200:#e8e9ee; --primary-100:#f4f4f6;
+
+  --accent-900:#172384; --accent-800:#415ada; --accent-700:#6176e0;
+  --accent-600:#8d9ce9; --accent-300:#e0e3f7; --accent-200:#f0f1fa; --accent-100:#f9faff;
+
+  --orange-700:#cd6e12; --orange-600:#ea9210; --orange-300:#f7e5ac;
+  --orange-200:#fbefca; --orange-100:#fdf6e4;
+
+  --red-800:#bf1133; --red-700:#e21c3e; --red-600:#f5455a;
+  --red-200:#fee3e6; --red-100:#fff1f1;
+
+  --green-700:#21743e; --green-600:#25944b; --green-500:#39c569;
+  --green-200:#cdf1da; --green-100:#e1f6e9;
+
+  --bg:#f9fbfe;
+  --radius:8px;
+  --shadow-sm:0 1px 2px 0 #343a630d;
+  --shadow-md:0 8px 16px 0 #00000024;
+
+  --slide-w:1280px;
+  --slide-h:720px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--primary-100);
+  color:var(--primary-900);
+  font-feature-settings:"tnum" 1,"lnum" 1;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+/* ---------- stage & scaling ---------- */
+#stage{position:fixed;inset:0;display:grid;place-items:center}
+#deck{width:var(--slide-w);height:var(--slide-h);position:relative;transform-origin:center center}
+
+.slide{
+  position:absolute;inset:0;
+  width:var(--slide-w);height:var(--slide-h);
+  background:var(--bg);
+  display:none;
+  padding:56px 72px 64px;
+  overflow:hidden;
+}
+.slide.active{display:block}
+
+/* ---------- slide furniture ---------- */
+.eyebrow{
+  font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent-800);margin-bottom:14px;
+}
+h1{font-size:46px;line-height:1.1;font-weight:700;letter-spacing:-.02em}
+h2{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:-.015em;margin-bottom:10px}
+h3{font-size:17px;font-weight:600;letter-spacing:-.005em}
+p{font-size:16px;line-height:1.55;color:var(--primary-800)}
+.lede{font-size:19px;line-height:1.5;color:var(--primary-800);max-width:80ch}
+.muted{color:var(--primary-700)}
+.small{font-size:13px;line-height:1.5}
+strong{font-weight:600;color:var(--primary-900)}
+.rule{height:3px;width:56px;background:var(--accent-800);border-radius:2px;margin:18px 0 26px}
+
+.slide-no{
+  position:absolute;right:72px;bottom:26px;
+  font-size:12px;font-weight:600;color:var(--primary-600);letter-spacing:.06em;
+}
+.slide-foot{
+  position:absolute;left:72px;bottom:26px;
+  font-size:12px;color:var(--primary-600);
+}
+
+/* ---------- cover ---------- */
+.cover{background:var(--primary-900);color:#fff;display:none;padding:0}
+.cover.active{display:grid;grid-template-columns:1.25fr .75fr}
+.cover-l{padding:96px 72px 64px;display:flex;flex-direction:column;justify-content:flex-start}
+.cover-r{
+  background:linear-gradient(160deg,var(--accent-900) 0%,var(--accent-800) 100%);
+  display:flex;align-items:flex-end;padding:56px;position:relative;
+}
+.cover h1{font-size:52px;color:#fff;max-width:18ch}
+.cover .eyebrow{color:var(--accent-600)}
+.cover p{color:#c9ccdd}
+.cover .meta{margin-top:auto;padding-top:40px;font-size:13px;color:#8e93b5;line-height:1.9}
+.stamp{position:absolute;top:92px;right:56px;transform:rotate(-9deg);color:#ffb38a;border:3px solid currentColor;border-radius:10px;padding:10px 16px 9px;text-align:center;box-shadow:inset 0 0 0 3px transparent,inset 0 0 0 5px rgba(255,179,138,.55);opacity:.92}
+.stamp .s1{font-size:15px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;line-height:1.2}
+.stamp .s2{margin-top:5px;padding-top:5px;border-top:1.5px dashed currentColor;font-size:13px;font-weight:600;letter-spacing:.06em;display:flex;align-items:center;justify-content:center;gap:7px}
+.stamp svg{width:18px;height:18px}
+.cover-r .quote{color:#dfe3ff;font-size:17px;line-height:1.5;font-weight:500}
+.cover-r .quote span{display:block;margin-top:14px;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#aab2f0}
+
+/* ---------- agenda ---------- */
+.agenda{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 28px;margin-top:6px}
+.ag-item{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:11px 14px;border-radius:var(--radius);
+  background:#fff;border:1px solid var(--primary-200);box-shadow:var(--shadow-sm);
+  cursor:pointer;transition:border-color .12s,transform .12s;
+}
+.ag-item:hover{border-color:var(--accent-600);transform:translateY(-1px)}
+.ag-n{
+  flex:0 0 26px;height:26px;border-radius:6px;background:var(--accent-200);
+  color:var(--accent-900);font-size:12px;font-weight:700;
+  display:grid;place-items:center;margin-top:1px;
+}
+.ag-t{font-size:15px;font-weight:600;line-height:1.3}
+.ag-d{font-size:12.5px;color:var(--primary-700);line-height:1.4;margin-top:3px}
+.agenda-note{
+  margin-top:20px;padding:13px 16px;border-radius:var(--radius);
+  background:var(--accent-100);border:1px solid var(--accent-300);
+  font-size:13.5px;color:var(--primary-800);line-height:1.5;
+}
+
+/* ---------- generic layout helpers ---------- */
+.cols{display:grid;gap:26px}
+.c2{grid-template-columns:1fr 1fr}
+.c3{grid-template-columns:repeat(3,1fr)}
+.c-2-1{grid-template-columns:2fr 1fr}
+.card{
+  background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);
+  box-shadow:var(--shadow-sm);padding:18px 20px;
+}
+.card h3{margin-bottom:7px}
+.card p{font-size:14px;line-height:1.5}
+
+/* ---------- the chain (problem slide) ---------- */
+.chain{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:4px}
+.step{position:relative;padding:16px 18px 16px 20px;background:#fff;border:1px solid var(--primary-200);border-right:none}
+.step:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.step:last-child{border-right:1px solid var(--primary-200);border-radius:0 var(--radius) var(--radius) 0}
+.step .k{
+  font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--primary-600);margin-bottom:8px;
+}
+.step .t{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:6px}
+.step .d{font-size:12.5px;line-height:1.45;color:var(--primary-700)}
+.step::after{
+  content:"";position:absolute;right:-9px;top:50%;transform:translateY(-50%) rotate(45deg);
+  width:16px;height:16px;background:#fff;border-top:1px solid var(--primary-200);
+  border-right:1px solid var(--primary-200);z-index:2;
+}
+.step:last-child::after{display:none}
+.step.bad{background:var(--red-100);border-color:var(--red-200)}
+.step.bad::after{background:var(--red-100);border-color:var(--red-200)}
+.step.bad .k{color:var(--red-700)}
+.step.warn{background:var(--orange-100);border-color:var(--orange-300)}
+.step.warn::after{background:var(--orange-100);border-color:var(--orange-300)}
+.step.warn .k{color:var(--orange-700)}
+
+/* ---------- number strip ---------- */
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+.num{
+  background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);
+  padding:10px 18px;box-shadow:var(--shadow-sm);
+}
+.num .lbl{font-size:12px;font-weight:600;color:var(--primary-700);letter-spacing:.02em}
+.num .val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.num .sub{font-size:12.5px;color:var(--primary-700);margin-top:3px;line-height:1.4}
+.num.ok .val{color:var(--primary-900)}
+.num.bad .val{color:var(--red-700)}
+.num.odd .val{color:var(--green-700)}
+
+/* ---------- callout ---------- */
+.callout{
+  margin-top:20px;padding:15px 18px;border-radius:var(--radius);
+  background:var(--primary-900);color:#fff;font-size:15.5px;line-height:1.5;
+}
+.callout strong{color:#fff;font-weight:600}
+.callout.light{background:var(--accent-100);color:var(--primary-900);border:1px solid var(--accent-300)}
+.callout.light strong{color:var(--accent-900)}
+
+/* ---------- figure / screenshot placeholder ---------- */
+.figs{display:grid;gap:16px;margin-top:8px}
+figure{margin:0}
+.shot{
+  width:100%;border-radius:var(--radius);border:1px solid var(--primary-200);
+  background:#fff;box-shadow:var(--shadow-sm);display:block;
+}
+.shot-ph{
+  width:100%;aspect-ratio:16/9;border-radius:var(--radius);
+  border:1.5px dashed var(--primary-400);background:var(--primary-100);
+  display:grid;place-items:center;text-align:center;padding:16px;
+}
+.shot-ph span{font-size:12.5px;color:var(--primary-700);line-height:1.5}
+.shot-ph code{
+  display:block;margin-top:6px;font-size:11.5px;color:var(--accent-800);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+figcaption{font-size:12.5px;color:var(--primary-700);margin-top:8px;line-height:1.45}
+
+/* ---------- placeholder slide body ---------- */
+.ph-body{
+  margin-top:8px;border:1.5px dashed var(--primary-400);border-radius:var(--radius);
+  background:#fff;padding:26px 28px;min-height:360px;
+}
+.ph-body .ph-head{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-800);margin-bottom:14px}
+.ph-list{list-style:none;display:grid;gap:9px}
+.ph-list li{
+  display:flex;gap:11px;align-items:flex-start;
+  font-size:14.5px;line-height:1.5;color:var(--primary-800);
+}
+.ph-list li::before{
+  content:"";flex:0 0 7px;height:7px;border-radius:2px;background:var(--accent-600);margin-top:8px;
+}
+.ph-meta{
+  margin-top:18px;padding-top:14px;border-top:1px solid var(--primary-200);
+  font-size:12.5px;color:var(--primary-600);
+}
+.tag{
+  display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;
+  background:var(--primary-200);color:var(--primary-800);margin-right:6px;letter-spacing:.02em;
+}
+.tag.proto{background:var(--accent-200);color:var(--accent-900)}
+.tag.cs{background:var(--green-200);color:var(--green-700)}
+.tag.dev{background:var(--orange-200);color:var(--orange-700)}
+.aud{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:none;background:var(--orange-200);color:var(--orange-700);vertical-align:1px}
+
+/* ---------- prototype mount point ---------- */
+.proto-mount{
+  border:1.5px dashed var(--accent-600);border-radius:var(--radius);
+  background:var(--accent-100);min-height:300px;display:grid;place-items:center;text-align:center;padding:20px;
+}
+.proto-mount span{font-size:13px;color:var(--accent-900);line-height:1.6}
+
+/* ---------- chrome: nav + progress ---------- */
+#chrome{position:fixed;inset:auto 0 0 0;pointer-events:none;z-index:50}
+#bar{height:3px;background:var(--primary-200)}
+#bar>i{display:block;height:100%;width:0;background:var(--accent-800);transition:width .18s ease}
+#nav{
+  position:fixed;right:18px;bottom:16px;display:flex;gap:6px;align-items:center;
+  pointer-events:auto;background:#fff;border:1px solid var(--primary-200);
+  border-radius:24px;padding:5px 8px;box-shadow:var(--shadow-md);
+}
+#nav button{
+  border:0;background:transparent;cursor:pointer;width:30px;height:30px;border-radius:50%;
+  color:var(--primary-800);font-size:15px;line-height:1;display:grid;place-items:center;
+}
+#nav button:hover{background:var(--primary-100)}
+#nav .count{font-size:12px;font-weight:600;color:var(--primary-700);padding:0 8px;min-width:58px;text-align:center}
+#hint{
+  position:fixed;left:18px;bottom:18px;font-size:11.5px;color:var(--primary-600);
+  pointer-events:none;
+}
+
+/* ---------- print / PDF ---------- */
+@page{size:1280px 720px;margin:0}
+@media print{
+  body{background:#fff;overflow:visible}
+  #stage{position:static;display:block}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide,.cover{
+    display:block!important;position:relative;inset:auto;
+    width:1280px;height:720px;page-break-after:always;break-after:page;
+  }
+  .cover.active,.cover{display:grid!important}
+  #chrome,#nav,#hint{display:none!important}
+}
+
+/* ================= v2 additions ================= */
+h2{font-size:32px}
+.sub{font-size:15.5px;color:var(--primary-700);margin-top:-2px;margin-bottom:18px;max-width:90ch}
+
+/* strike list (diagnosis) */
+.not{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+.not .x{
+  padding:14px 16px;border-radius:var(--radius);background:#fff;border:1px solid var(--primary-200);
+}
+.not .x .h{font-size:14px;font-weight:600;color:var(--primary-900)}
+.not .x .w{font-size:12.5px;color:var(--primary-700);margin-top:5px;line-height:1.45}
+.is{
+  margin-top:14px;padding:16px 18px;border-radius:var(--radius);
+  background:var(--accent-100);border:1px solid var(--accent-300);
+  display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;
+}
+.is .h{font-size:14px;font-weight:600;color:var(--accent-900)}
+.is .w{font-size:14px;color:var(--primary-800);line-height:1.5}
+
+/* link diagram (1:1 vs ledger) */
+.linkdiag{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}
+.ld{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:12px 14px}
+.ld .cap{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-600);margin-bottom:8px}
+.ld svg{width:100%;height:auto;display:block}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.chip{font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:14px;background:#fff;border:1px solid var(--primary-300);color:var(--primary-800)}
+.chip b{font-weight:700;color:var(--accent-900)}
+
+/* matrix (cases) */
+table.mx{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);overflow:hidden;font-size:12.5px}
+.mx th{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600);text-align:left;padding:9px 12px;background:var(--primary-100);border-bottom:1px solid var(--primary-200)}
+.mx td{padding:7px 12px;border-bottom:1px solid var(--primary-200);vertical-align:middle;line-height:1.4;color:var(--primary-800)}
+.mx tr:last-child td{border-bottom:none}
+.mx td:first-child{font-weight:600;color:var(--primary-900)}
+.act{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.act.auto{background:var(--green-100);color:var(--green-700)}
+.act.note{background:var(--accent-200);color:var(--accent-900)}
+.act.line{background:var(--orange-100);color:var(--orange-700)}
+.act.doc{background:var(--red-100);color:var(--red-700)}
+.act.wait{background:var(--primary-100);color:var(--primary-700)}
+.legend{display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--primary-700);align-items:center}
+
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.tile{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm)}
+.tile .v{font-size:34px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.tile .l{font-size:12.5px;color:var(--primary-700);margin-top:6px;line-height:1.4}
+.tile.dim .v{color:var(--primary-600)}
+.tile.hot .v{color:var(--accent-800)}
+
+.two{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;margin-top:16px}
+.list-plain{list-style:none;display:grid;gap:7px}
+.list-plain li{font-size:13.5px;line-height:1.45;color:var(--primary-800);padding-left:14px;position:relative}
+.list-plain li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:2px;background:var(--accent-700)}
+.list-x li::before{background:var(--red-600)}
+.list-x li{color:var(--primary-700)}
+.list-x li s{text-decoration-color:var(--red-600);color:var(--primary-800)}
+.boxh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-600);margin-bottom:9px}
+
+/* assumptions table */
+table.as{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);overflow:hidden;font-size:13px}
+.as th{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600);text-align:left;padding:10px 14px;background:var(--primary-100);border-bottom:1px solid var(--primary-200)}
+.as td{padding:11px 14px;border-bottom:1px solid var(--primary-200);vertical-align:top;line-height:1.45;color:var(--primary-800)}
+.as tr:last-child td{border-bottom:none}
+.as td:first-child{font-weight:600;color:var(--primary-900);width:31%}
+.as code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent-900);background:var(--accent-100);padding:1px 5px;border-radius:4px}
+
+/* solution strip */
+.who{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.who .w{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:7px 12px}
+.who .w .n{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-800);margin-bottom:2px}
+.who .w .t{font-size:12.5px;line-height:1.4;color:var(--primary-800)}
+
+/* ---------- prototype ---------- */
+.proto{
+  display:grid;grid-template-columns:1.35fr 1fr;gap:0;
+  background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);
+  height:440px;
+}
+.proto-l{border-right:1px solid var(--primary-200);display:flex;flex-direction:column;min-width:0}
+.proto-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--primary-200);background:var(--primary-100)}
+.proto-top .ttl{font-size:13px;font-weight:700}
+.proto-top .ttl span{font-weight:500;color:var(--primary-700);margin-left:8px;font-size:12px}
+.pill{font-size:11px;font-weight:600;padding:3px 8px;border-radius:12px}
+.pill.wr{background:var(--orange-200);color:var(--orange-700)}
+.pill.ok{background:var(--green-200);color:var(--green-700)}
+table.pl{width:100%;border-collapse:collapse;font-size:12.5px}
+.pl th{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600);text-align:left;padding:7px 12px;border-bottom:1px solid var(--primary-200)}
+.pl td{padding:9px 12px;border-bottom:1px solid var(--primary-200);vertical-align:middle;line-height:1.35}
+.pl tr.row{cursor:pointer;transition:background .1s}
+.pl tr.row:hover{background:var(--accent-100)}
+.pl tr.row.sel{background:var(--accent-200)}
+.pl td.r{text-align:right;font-variant-numeric:tabular-nums}
+.pl .sku{color:var(--primary-600);font-size:11px;display:block}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:12px;white-space:nowrap}
+.st.ok{background:var(--green-100);color:var(--green-700)}
+.st.ex{background:var(--orange-100);color:var(--orange-700)}
+.st.new{background:var(--accent-200);color:var(--accent-900)}
+.st i{font-style:normal;width:12px;height:12px;border-radius:50%;display:inline-grid;place-items:center;font-size:9px;font-weight:800}
+.st.ok i{background:var(--green-600);color:#fff}
+.st.ok.mc i{background:var(--primary-300);color:var(--primary-800)}
+.st.ex i{background:var(--orange-600);color:#fff}
+.st.new i{background:var(--accent-800);color:#fff}
+.tick{display:inline-block;width:14px;height:14px;border-radius:50%;font-size:9px;font-weight:800;display:inline-grid;place-items:center;vertical-align:-2px;margin-right:4px}
+.tick.grey{background:var(--primary-300);color:var(--primary-800)}
+.tick.green{background:var(--green-500);color:#fff}
+.proto-foot{margin-top:auto;padding:9px 14px;border-top:1px solid var(--primary-200);display:flex;justify-content:space-between;align-items:center;font-size:12px;background:var(--primary-100)}
+.proto-foot b{font-weight:700}
+.proto-foot .po{color:var(--primary-700)}
+.proto-foot .po b{color:var(--green-700)}
+
+.proto-r{display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,var(--accent-100),#fff 42%)}
+.ag-h{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--accent-300);background:var(--accent-200)}
+.ag-ic{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;background:linear-gradient(135deg,#415ada,#8a5cf6);flex:0 0 auto}
+.ag-ic svg{width:17px;height:17px}
+.ag-h .nm{font-size:13px;font-weight:700;color:var(--primary-900);line-height:1.15}
+.ag-h .nm small{display:block;font-size:11px;font-weight:500;color:var(--primary-600)}
+.ag-h .live{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--accent-900)}
+.ag-h .live i{width:7px;height:7px;border-radius:50%;background:#8a5cf6;box-shadow:0 0 0 3px rgba(138,92,246,.18)}
+.ag-b{padding:10px 16px;display:flex;flex-direction:column;gap:7px;flex:1;min-height:0;overflow-y:auto}
+.rst{border:1px solid var(--primary-300);background:#fff;border-radius:6px;font:inherit;font-size:11.5px;font-weight:600;color:var(--primary-800);padding:3px 9px;cursor:pointer;margin-left:8px}
+.rst:hover{border-color:var(--accent-700);color:var(--accent-900)}
+.sug{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b46d9;display:flex;align-items:center;gap:5px}
+.sug svg{width:12px;height:12px}
+.btn.ai{background:linear-gradient(135deg,#415ada,#7a52ef);color:#fff;border-color:transparent;justify-content:flex-start;gap:9px;box-shadow:0 2px 8px rgba(98,76,230,.28)}
+.btn.ai:hover{background:linear-gradient(135deg,#34489f,#6b46d9);border-color:transparent}
+.btn.ai svg{width:15px;height:15px;flex:0 0 auto}
+.btn.ai span{display:flex;flex-direction:column;gap:1px}
+.btn.ai small{color:#e4e2fb;font-weight:500}
+.btn.ai > small{margin-left:auto}
+.proto-r .why.sm{font-size:11.5px;color:var(--primary-600)}
+.sgc{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#efe9fe;margin-left:5px;vertical-align:middle}
+.sgc svg{width:11px;height:11px}
+.st.wt{background:var(--accent-300);color:var(--accent-900)}
+.st.wt i{background:var(--accent-800);color:#fff}
+.pill.wt{background:var(--accent-300);color:var(--accent-900)}
+.done.wt{background:var(--accent-200);border-color:var(--accent-300);color:var(--accent-900)}
+.done.wt b{color:var(--accent-900)}
+.pv{border:1px dashed var(--accent-700);border-radius:6px;padding:8px 10px;display:grid;gap:6px;background:#fff}
+.pv .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600)}
+.pv .bb{display:flex;gap:6px}
+.pv .fb{flex:1;font-size:12px;font-weight:600;padding:6px 9px;border-radius:6px;border:1px solid var(--primary-300);color:var(--primary-900);background:#fff}
+.pv .fb.k1{background:var(--primary-900);border-color:var(--primary-900);color:#fff}
+.pv .fb small{display:block;font-weight:500;font-size:10.5px;color:var(--primary-600)}
+.pv .fb.k1 small{color:#c9ccdd}
+.proto-r .ph{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-600)}
+.proto-r .why{font-size:12.5px;line-height:1.45;color:var(--primary-800)}
+.proto-r .why b{font-weight:600}
+.evid{display:grid;gap:5px}
+.evid .e{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--primary-800);line-height:1.4}
+.evid .e .k{flex:0 0 74px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--primary-600);margin-top:2px}
+.acts{display:grid;gap:6px;margin-top:2px}
+.btn{
+  text-align:left;border:1px solid var(--primary-300);background:#fff;border-radius:6px;
+  padding:8px 11px;font:inherit;font-size:12.5px;font-weight:600;color:var(--primary-900);cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.btn:hover{border-color:var(--accent-700);background:var(--accent-100)}
+.btn.primary{background:var(--primary-900);color:#fff;border-color:var(--primary-900)}
+.btn.primary:hover{background:var(--accent-900);border-color:var(--accent-900)}
+.btn small{font-weight:500;color:var(--primary-600);font-size:11px}
+.btn.primary small{color:#c9ccdd}
+.done{
+  padding:10px 12px;border-radius:6px;background:var(--green-100);border:1px solid var(--green-200);
+  font-size:12.5px;line-height:1.45;color:var(--green-700);
+}
+.done b{color:var(--green-700)}
+.hintp{font-size:11.5px;color:var(--primary-600);margin-top:auto}
+.seq{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.seq .s{font-size:12.5px;line-height:1.4;color:var(--primary-800);padding:8px 11px;border-left:3px solid var(--accent-700);background:#fff;border-radius:0 6px 6px 0}
+.seq .s b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-900);margin-bottom:2px}
+
+/* ---------- ER diagram ---------- */
+.er{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:10px 14px 6px}
+.er svg{width:100%;height:auto;display:block}
+.inv{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+.inv .i{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:10px 13px;font-size:12.5px;line-height:1.45;color:var(--primary-800)}
+.inv .i b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--red-700);margin-bottom:3px}
+
+/* ---------- agent flow ---------- */
+.agent{display:grid;grid-template-columns:.78fr 1.75fr .78fr;gap:18px;margin-top:6px}
+.fn{display:grid;gap:5px}
+.fn .f{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent-900);background:#fff;border:1px solid var(--accent-300);border-radius:6px;padding:6px 9px}
+.fn .f span{font-family:Inter,sans-serif;color:var(--primary-700);font-size:11px;margin-left:6px}
+.flow svg{width:100%;height:auto;display:block}
+.never .n{font-size:12.5px;line-height:1.4;color:var(--primary-800);padding:7px 10px;background:var(--red-100);border:1px solid var(--red-200);border-radius:6px;margin-bottom:6px}
+.never .n b{color:var(--red-700);font-weight:700}
+
+/* ---------- ladder ---------- */
+.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:8px}
+.rung{position:relative;padding:14px 16px 14px 18px;background:#fff;border:1px solid var(--primary-200);border-right:none}
+.rung:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.rung:last-child{border-right:1px solid var(--primary-200);border-radius:0 var(--radius) var(--radius) 0}
+.rung .lvl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-800);margin-bottom:6px}
+.rung .t{font-size:14px;font-weight:600;margin-bottom:6px}
+.rung .d{font-size:12.5px;line-height:1.45;color:var(--primary-700)}
+.rung .in{margin-top:8px;font-size:11.5px;color:var(--accent-900);background:var(--accent-100);border:1px solid var(--accent-300);border-radius:5px;padding:5px 8px;line-height:1.4}
+.rung .in b{font-weight:700}
+.rung::after{content:"";position:absolute;right:-9px;top:50%;transform:translateY(-50%) rotate(45deg);width:16px;height:16px;background:#fff;border-top:1px solid var(--primary-200);border-right:1px solid var(--primary-200);z-index:2}
+.rung:last-child::after{display:none}
+.trust-b{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}
+.tb{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:11px 13px;font-size:12.5px;line-height:1.45;color:var(--primary-800)}
+.tb b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600);margin-bottom:4px}
+.t9{display:grid;grid-template-columns:1fr 1.25fr;gap:14px;margin-top:14px}
+.t9l{display:grid;gap:8px;align-content:start}
+.t9l .tb{padding:8px 12px}
+.wk{background:#fff;border:1px solid var(--accent-300);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column}
+.wk-h{display:flex;align-items:center;gap:9px;padding:9px 14px;background:var(--accent-200);border-bottom:1px solid var(--accent-300)}
+.wk-h .nm{font-size:13px;font-weight:700;color:var(--primary-900);line-height:1.15}
+.wk-h .nm small{display:block;font-size:11px;font-weight:500;color:var(--primary-600)}
+.wk-d{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--accent-900)}
+.wk-g{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--primary-200);flex:1}
+.wk-t{background:#fff;padding:10px 14px}
+.wk-t .v{font-size:22px;font-weight:700;color:var(--primary-900);letter-spacing:-.01em;line-height:1.15}
+.wk-t .v small{font-size:12px;font-weight:500;color:var(--primary-600)}
+.wk-t .l{font-size:12px;color:var(--primary-700);line-height:1.35;margin-top:2px}
+.wk-t .l b{color:var(--green-700)}
+.wk-f{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-top:1px solid var(--primary-200);font-size:12px;color:var(--primary-800)}
+.wk-b{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-weight:600;color:#fff;background:linear-gradient(135deg,#415ada,#7a52ef);padding:6px 11px;border-radius:6px}
+.wk-b svg{width:13px;height:13px}
+
+/* ---------- metrics ---------- */
+.mt{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px}
+.m{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:6px}
+.m .n{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-800)}
+.m .big{font-size:15px;font-weight:600;line-height:1.3}
+.m .how{font-size:12px;color:var(--primary-700);line-height:1.45}
+.m .tg{margin-top:auto;font-size:12px;padding:6px 9px;border-radius:5px;background:var(--primary-100);color:var(--primary-800);line-height:1.4}
+.m .tg b{color:var(--primary-900)}
+.m.pair{border-color:var(--orange-300);background:var(--orange-100)}
+.m.pair .n{color:var(--orange-700)}
+.falsify{margin-top:12px;padding:12px 16px;border-radius:var(--radius);background:var(--primary-900);color:#fff;font-size:14px;line-height:1.5}
+.falsify b{color:#fff;font-weight:700}
+/* ---------- slide 10 · pyramid + discovery loop ---------- */
+.s10{display:grid;grid-template-columns:1.05fr 1fr;gap:28px;margin-top:6px}
+.pyr{display:flex;flex-direction:column;align-items:center}
+.tier-l{align-self:flex-start;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-500,#8e91a8);margin:0 0 4px}
+.pyr .k{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.pyr .l{font-size:12.5px;line-height:1.35;color:var(--primary-700)}
+.p-top{width:58%;background:var(--primary-900);color:#fff;border-radius:var(--radius);padding:14px 16px;text-align:center;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.p-top .k{color:#aab2f0}
+.p-top .v{font-size:80px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.p-top .l{color:#fff;font-size:14px;font-weight:600;margin-top:4px}
+.p-top .s{font-size:11.5px;color:#aab2f0;margin-top:2px}
+.p-mid{width:82%;display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:8px;margin-bottom:14px}
+.p-mid .px{align-self:center}
+.px{font-size:26px;font-weight:700;color:var(--primary-600)}
+.pc{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:10px 12px;text-align:center;box-shadow:var(--shadow-sm)}
+.pc .v{font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:var(--primary-900);margin:2px 0}
+.p-mid .pc .v{font-size:48px}
+.pc.act .k{color:var(--accent-800)}
+.pc.qual{background:var(--orange-100);border-color:var(--orange-300)}
+.pc.qual .k{color:var(--orange-700)}
+.p-base .pc .k{color:var(--primary-600)}
+.p-base{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.loop{display:flex;flex-direction:column;gap:9px}
+.loop-h{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-600);margin-bottom:1px}
+.ls{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--primary-200);border-left:3px solid var(--accent-800);border-radius:0 var(--radius) var(--radius) 0;padding:9px 12px;font-size:12.5px;line-height:1.4;color:var(--primary-800)}
+.ls .n{flex:0 0 20px;height:20px;border-radius:50%;background:var(--accent-200);color:var(--accent-900);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.ls b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-900);margin-bottom:2px}
+.ls.chk{border-left-color:var(--primary-900)}
+.ls.nxt{border-left-color:var(--green-600)}
+.wf{display:flex;align-items:center;gap:8px;margin-top:3px}
+.wf i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.06em;padding:2px 7px;border-radius:4px;flex:0 0 auto}
+.wf i.win{background:var(--green-100);color:var(--green-700)}
+.wf i.fail{background:var(--red-100);color:var(--red-700)}
+
+
+
+/* problem slide: other situations */
+.others{margin-top:14px}
+.others .oh{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--primary-600);margin-bottom:8px}
+.others .og{display:grid;grid-template-columns:repeat(4,1fr) 34px 1.55fr;gap:12px;align-items:stretch}
+.others .o{background:#fff;border:1px solid var(--primary-200);color:var(--primary-700);border-radius:var(--radius);padding:11px 14px;font-size:12.5px;line-height:1.45}
+.others .o b{display:block;color:var(--primary-900);font-size:13.5px;font-weight:600;margin-bottom:3px}
+
+.chain.c6{grid-template-columns:repeat(6,1fr)}
+.chain.c6 .step{padding:14px 14px 12px 16px;display:flex;flex-direction:column}
+.chain.c6 .step .t{font-size:13.5px}
+.chain.c6 .step .d{font-size:12px}
+.step .via{margin-top:auto;padding-top:8px;font-size:10.5px;font-weight:600;color:var(--accent-800);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.step.ok{background:var(--green-100);border-color:var(--green-200)}
+.step.ok::after{background:var(--green-100);border-color:var(--green-200)}
+.step.ok .k{color:var(--green-700)}
+
+.others .arr{display:grid;place-items:center;font-size:40px;font-weight:700;color:var(--red-700);line-height:1}
+.others .res{background:var(--red-700);border-radius:var(--radius);padding:12px 18px;display:flex;flex-direction:column;justify-content:center;gap:2px;box-shadow:0 8px 20px 0 #e21c3e40}
+.others .res b{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffd6dc;margin-bottom:3px}
+.others .res span{font-size:20px;font-weight:700;color:#fff;line-height:1.25;letter-spacing:-.01em}
+
+.ld .def{font-size:12px;color:var(--primary-700);margin:-3px 0 6px;line-height:1.4}
+.ld .def b{color:var(--accent-900);font-weight:700}
+.ld.ok{border-color:var(--accent-300)}
+.ld.ok .cap{color:var(--accent-800)}
+
+/* slide 03 AI/Rules markers */
+.wh{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;margin-right:6px;vertical-align:1px}
+.wh.ai{background:var(--accent-900);color:#fff}
+.wh.rl{background:var(--primary-200);color:var(--primary-800)}
+/* slide 08 swimlane */
+.lanes{background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius);padding:10px 12px 8px}
+.lanes svg{width:100%;height:auto;max-height:238px;display:block;margin:0 auto}
+.split{display:grid;grid-template-columns:1fr 1fr .8fr;gap:12px;margin-top:10px}
+.sp{border-radius:var(--radius);padding:8px 12px;font-size:12px;line-height:1.45;color:var(--primary-800);border:1px solid var(--primary-200);background:#fff}
+.sp b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.sp.ai{border-color:var(--accent-300);background:var(--accent-100)}.sp.ai b{color:var(--accent-900)}
+.sp.rl{background:var(--primary-100)}.sp.rl b{color:var(--primary-900)}
+.sp.no{border-color:var(--red-200);background:var(--red-100)}.sp.no b{color:var(--red-700)}
+.fns-h{margin-top:10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600)}
+.fns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 8px;margin-top:5px}
+.fn{background:#fff;border:1px solid var(--primary-200);border-radius:6px;padding:5px 9px}
+.fh{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.fh b{font-size:12px;font-weight:700;color:var(--primary-900)}
+.fh span{font-size:10.5px;font-weight:600;color:var(--accent-800);white-space:nowrap}
+.fd{font-size:11.5px;line-height:1.35;color:var(--primary-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools{margin-top:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent-900)}
+.tools span{font-family:Inter,sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-600);margin-right:10px}
+
+/* slide 04 */
+.src{display:grid;grid-template-columns:1.1fr repeat(4,1fr);gap:10px;margin:4px 0 12px;padding:10px 12px;background:#fff;border:1px solid var(--primary-200);border-radius:var(--radius)}
+.src div{font-size:11.5px;line-height:1.4;color:var(--primary-700)}
+.src b{display:block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--primary-900);margin-bottom:2px}
+.src .sh b{color:var(--accent-800);font-size:12px;letter-spacing:.02em;text-transform:none}
+.src .sg{border-left:1px solid var(--primary-200);padding-left:10px}
+.t-sm .tile{padding:10px 14px}.t-sm .tile .v{font-size:26px}.t-sm .tile .l{font-size:12px;margin-top:4px}
+.t-sm2{margin-top:12px}
+.t-sm2 .list-plain li{font-size:13px}
+.concl{margin-top:12px;padding:13px 18px;border-radius:var(--radius);background:var(--primary-900);color:#dfe3ff;font-size:15px;line-height:1.5}
+.concl span{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--accent-800);padding:3px 8px;border-radius:4px;margin-right:10px;vertical-align:2px}
+.concl strong{color:#fff;font-weight:700}
+
+.list-x .was{color:var(--primary-600)}
+</style>
+</head>
+<body>
+
+<!--
+  Precoro · тестове завдання · 23.09.2026
+  Принципи: мінімум тексту, українська з англійськими термінами, візуал замість прози.
+-->
+
+<div id="stage">
+<div id="deck">
+
+<!-- ========================= COVER ========================= -->
+<section class="slide cover" data-nonum>
+  <div class="cover-l">
+    <div class="eyebrow">Precoro · AI test task</div>
+    <h1>Invoice/PO matching agentic solution</h1>
+    <p style="margin-top:20px;max-width:52ch;font-size:17px;line-height:1.55">
+      Мепінг айтемів, звʼязки в базі, як агент обирає поведінку,
+      і як AP team починає довіряти результату.
+    </p>
+    <div class="meta">
+      Саша Козяровський · вересень 2026
+    </div>
+  </div>
+  <div class="cover-r">
+    <div class="stamp" aria-label="Ideated by a human, formatted by AI">
+      <div class="s1">Ideated by a human</div>
+      <div class="s2">formatted by AI <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.6" cy="9.6" r="1.4" fill="currentColor"/><circle cx="15.4" cy="9.6" r="1.4" fill="currentColor"/><path d="M7.5 14.2c1.1 1.9 2.7 2.8 4.5 2.8s3.4-.9 4.5-2.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+    </div>
+    <div class="quote">
+      Агенту, якого все одно доводиться перевіряти руками, ніхто не довіряє.
+      Юзеру простіше зробити все самому.
+      <span>Передумова</span>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= AGENDA ========================= -->
+<section class="slide" data-nonum>
+  <h2>Agenda</h2>
+  <div class="rule"></div>
+  <div class="agenda">
+    <div class="ag-item" data-go="2"><div class="ag-n">1</div><div><div class="ag-t">Опис проблеми</div><div class="ag-d">Use cases: PR → PO → Receipt → Invoice</div></div></div>
+    <div class="ag-item" data-go="3"><div class="ag-n">2</div><div><div class="ag-t">Діагноз</div><div class="ag-d">Чому так і чим це не є</div></div></div>
+    <div class="ag-item" data-go="4"><div class="ag-n">3</div><div><div class="ag-t">Кейси</div><div class="ag-d">11 класів і дія агента в кожному</div></div></div>
+    <div class="ag-item" data-go="5"><div class="ag-n">4</div><div><div class="ag-t">Market and competitors research</div><div class="ag-d">Інсайти і бенчмарки</div></div></div>
+    <div class="ag-item" data-go="6"><div class="ag-n">5</div><div><div class="ag-t">Припущення</div><div class="ag-d">І запити, якими їх перевірю</div></div></div>
+    <div class="ag-item" data-go="7"><div class="ag-n">6</div><div><div class="ag-t">Рішення і прототип</div><div class="ag-d">Exception по рядку, клікабельно</div></div></div>
+    <div class="ag-item" data-go="8"><div class="ag-n">7</div><div><div class="ag-t">Мепінг айтемів і модель даних</div><div class="ag-d">Обʼєкт, якого бракує</div></div></div>
+    <div class="ag-item" data-go="9"><div class="ag-n">8</div><div><div class="ag-t">Агент</div><div class="ag-d">Що робить AI, що роблять правила</div></div></div>
+    <div class="ag-item" data-go="10"><div class="ag-n">9</div><div><div class="ag-t">Довіра юзерів</div><div class="ag-d">Помічник, якому довіряють поступово</div></div></div>
+    <div class="ag-item" data-go="11"><div class="ag-n">10</div><div><div class="ag-t">Success criteria</div><div class="ag-d">Метрики і що нас спростує</div></div></div>
+  </div>
+  <div class="slide-foot">Клік по рядку: перехід · стрілки для навігації</div>
+</section>
+
+<!-- ===================== 01 · ПРОБЛЕМА ===================== -->
+<section class="slide">
+  <div class="eyebrow">01 · Опис проблеми</div>
+  <h2>Реальний сценарій з Precoro sandbox</h2>
+  <p class="lede" style="margin-bottom:20px">
+    Постачальник відвантажив зайву одиницю, розбив айтем на 2 партії з різними цінами
+    і додав збір, якого ніхто не замовляв. Усі документи пройшли через AI-флоу продукту.
+  </p>
+  <div class="chain c6">
+    <div class="step ok"><div class="k">PO</div><div class="t">Затверджено 2 позиції</div><div class="d">PO #7 з PR #8. MacBook&nbsp;Air 1&nbsp;×&nbsp;1&nbsp;098, AirPods&nbsp;Max 1&nbsp;×&nbsp;549. Разом EUR&nbsp;1&nbsp;976.40.</div><div class="via">Create PO</div></div>
+    <div class="step"><div class="k">Receipt</div><div class="t">Приїхало 2 AirPods замість 1</div><div class="d">Delivery note: 2. Receipt #5 записав 1. Мовчки, без прапорця.</div><div class="via">Scan with AI</div></div>
+    <div class="step"><div class="k">Invoice</div><div class="t">Той самий айтем 2 рядками</div><div class="d">2 партії, 2 ціни, плюс збір. 2 з 4 рядків не змепились ні на що.</div><div class="via">Add Invoice with AI</div></div>
+    <div class="step warn"><div class="k">Confirm</div><div class="t">Розбіжність видно після рішення</div><div class="d">До натискання на екрані 0.00. Після: 690.60.</div><div class="via">Confirm</div></div>
+    <div class="step bad"><div class="k">Approve</div><div class="t">PO переписується під Invoice</div><div class="d">2 рядки, яких ніхто не замовляв, стають замовленими.</div><div class="via">Approve на PO</div></div>
+    <div class="step bad"><div class="k">Result</div><div class="t">PO не закриється ніколи</div><div class="d">Чекає Receipt на збір, який не прийняти, і на AirPods, що вже на складі.</div></div>
+  </div>
+  <div class="nums">
+    <div class="num ok"><div class="lbl">Затверджено людиною</div><div class="val">1 976.40</div><div class="sub">Зобовʼязання, на яке компанія погодилась</div></div>
+    <div class="num bad"><div class="lbl">До оплати після 2 кліків</div><div class="val">2 667.00</div><div class="sub">На 690.60 більше, окремо ніким не затверджено</div></div>
+    <div class="num odd"><div class="lbl">На тому ж екрані</div><div class="val">1.00 saved</div><div class="sub">Єдина різниця, яку продукт рахує охоче</div></div>
+  </div>
+  <div class="others">
+    <div class="oh">Та сама проблема в інших ситуаціях клієнтів</div>
+    <div class="og">
+      <div class="o"><b>«Kitchen supplies»</b>1 рядок у PO, багато в Invoice.</div>
+      <div class="o"><b>Доставили більше</b>Рядків в Invoice більше, ніж у PO.</div>
+      <div class="o"><b>Айтем не той</b>Код постачальника ≠ каталог.</div>
+      <div class="o"><b>PO немає</b>Invoice треба автостворити.</div>
+      <div class="arr">→</div>
+      <div class="res"><b>Результат</b><span>Недовіра до агента</span><span>Низький adoption</span><span>Ручна робота</span></div>
+    </div>
+  </div>
+  <div class="slide-foot">Живий акаунт, 22.09.2026 · PO #7, Receipt #5, Invoice #5 · клацав сам</div>
+</section>
+
+<!-- ===================== 02 · ДІАГНОЗ ===================== -->
+<section class="slide">
+  <div class="eyebrow">02 · Діагноз</div>
+  <h2>Система помиляється, і часто робить це мовчки</h2>
+  <p class="sub">Інколи викидає дані без сліду, як зайву одиницю в Receipt. Інколи робить хибну дію, як переписаний PO. А екран в обох випадках такий самий чистий, як у документа без проблем.</p>
+
+  <div class="boxh" style="margin-top:4px">Саме по собі не вирішить</div>
+  <div class="not">
+    <div class="x"><div class="h">Точність моделі</div><div class="w">Усі поля прогону прочитані вірно. Тому більше роботи над екстракцією не пропоную.</div></div>
+    <div class="x"><div class="h">Human in the loop</div><div class="w">Людина на кожному документі це відкладена ручна робота, не рішення.</div></div>
+    <div class="x"><div class="h">Кращий промт + hard rules</div><div class="w">Потрібні обидва: rules на кожен клас кейсів, промт на неоднозначне. Але 2 одиниці нема куди записати, поки схема дозволяє 1.</div></div>
+  </div>
+
+  <div class="is">
+    <div class="h">Це про звʼязок</div>
+    <div class="w">Між PO та Invoice стоїть пара «1 рядок ↔ 1 рядок». Усе, що не влазить у пару, губиться або переписує PO.</div>
+  </div>
+
+  <div class="linkdiag">
+    <div class="ld"><div class="cap">Сьогодні · 1 рядок PO = 1 слот</div>
+      <div class="def">Рядок PO може звʼязатись лише з одним рядком Invoice.</div>
+      <svg viewBox="0 0 530 184" aria-hidden="true">
+        <defs>
+          <marker id="g1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#616686"/></marker>
+          <marker id="r1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e21c3e"/></marker>
+        </defs>
+        <rect x="10" y="14" width="160" height="32" rx="5" fill="#fff" stroke="#d2d3dc"/><text x="22" y="34" font-size="11.5" fill="#1d2452">AirPods A · 549.00</text>
+        <rect x="10" y="64" width="160" height="32" rx="5" fill="#fff1f1" stroke="#fee3e6"/><text x="22" y="84" font-size="11.5" fill="#1d2452">AirPods B · 565.00</text>
+        <rect x="10" y="114" width="160" height="32" rx="5" fill="#fff1f1" stroke="#fee3e6"/><text x="22" y="134" font-size="11.5" fill="#1d2452">WEEE · 3 × 3.50</text>
+        <rect x="340" y="18" width="180" height="70" rx="6" fill="#f4f4f6" stroke="#d2d3dc"/>
+        <text x="430" y="42" font-size="12.5" font-weight="600" fill="#1d2452" text-anchor="middle">PO · AirPods</text>
+        <text x="430" y="60" font-size="11.5" fill="#343a63" text-anchor="middle">1 шт × 549</text>
+        <text x="430" y="77" font-size="10.5" fill="#8e91a8" text-anchor="middle">1 слот</text>
+        <line x1="170" y1="30" x2="334" y2="42" stroke="#616686" stroke-width="1.5" marker-end="url(#g1)"/>
+        <text x="236" y="28" font-size="10.5" fill="#616686">займає слот</text>
+        <line x1="170" y1="80" x2="334" y2="66" stroke="#e21c3e" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#r1)"/>
+        <text x="228" y="98" font-size="10.5" font-weight="600" fill="#e21c3e">✕ слот зайнятий</text>
+        <text x="182" y="135" font-size="10.5" font-weight="600" fill="#e21c3e">✕ такого рядка в PO немає</text>
+        <text x="10" y="174" font-size="11.5" font-weight="600" fill="#e21c3e">Що не влізло: зникає або Approve дописує це в PO як «замовлене»</text>
+      </svg>
+    </div>
+    <div class="ld ok"><div class="cap">Треба · рядок PO = залишок, Invoice списує з нього</div>
+      <div class="def"><b>Алокація</b> = окремий запис списання: скільки взяли, з якого Receipt, за якою ціною.</div>
+      <svg viewBox="0 0 530 184" aria-hidden="true">
+        <defs>
+          <marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#415ada"/></marker>
+          <marker id="o1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#cd6e12"/></marker>
+          <marker id="n1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#21743e"/></marker>
+        </defs>
+        <rect x="10" y="14" width="146" height="32" rx="5" fill="#fff" stroke="#d2d3dc"/><text x="20" y="34" font-size="11.5" fill="#1d2452">AirPods A · 549.00</text>
+        <rect x="10" y="64" width="146" height="32" rx="5" fill="#fff" stroke="#d2d3dc"/><text x="20" y="84" font-size="11.5" fill="#1d2452">AirPods B · 565.00</text>
+        <rect x="10" y="114" width="146" height="32" rx="5" fill="#fff" stroke="#d2d3dc"/><text x="20" y="134" font-size="11.5" fill="#1d2452">WEEE · 3 × 3.50</text>
+        <line x1="156" y1="30" x2="176" y2="30" stroke="#415ada" stroke-width="1.5" marker-end="url(#a1)"/>
+        <line x1="156" y1="80" x2="176" y2="80" stroke="#415ada" stroke-width="1.5" marker-end="url(#a1)"/>
+        <line x1="156" y1="130" x2="176" y2="130" stroke="#21743e" stroke-width="1.5" marker-end="url(#n1)"/>
+        <rect x="180" y="14" width="132" height="32" rx="16" fill="#f9faff" stroke="#8d9ce9"/><text x="246" y="34" font-size="10.5" font-weight="600" fill="#172384" text-anchor="middle">алокація · 1 шт · Δ 0</text>
+        <rect x="180" y="64" width="132" height="32" rx="16" fill="#f9faff" stroke="#8d9ce9"/><text x="246" y="84" font-size="10.5" font-weight="600" fill="#172384" text-anchor="middle">алокація · 1 шт · Δ +16</text>
+        <rect x="180" y="114" width="132" height="32" rx="16" fill="#e1f6e9" stroke="#cdf1da"/><text x="246" y="134" font-size="10.5" font-weight="600" fill="#21743e" text-anchor="middle">правило збору → GL</text>
+        <line x1="312" y1="30" x2="344" y2="40" stroke="#415ada" stroke-width="1.5" marker-end="url(#a1)"/>
+        <line x1="312" y1="80" x2="344" y2="62" stroke="#415ada" stroke-width="1.5" marker-end="url(#a1)"/>
+        <rect x="350" y="12" width="170" height="80" rx="6" fill="#f0f1fa" stroke="#e0e3f7"/>
+        <text x="435" y="32" font-size="12.5" font-weight="600" fill="#1d2452" text-anchor="middle">PO · AirPods</text>
+        <text x="435" y="49" font-size="11" fill="#343a63" text-anchor="middle">замовлено 1 шт × 549</text>
+        <rect x="367" y="58" width="68" height="13" rx="2" fill="#415ada"/>
+        <rect x="436" y="58" width="68" height="13" rx="2" fill="#e21c3e"/>
+        <rect x="366.5" y="57.5" width="69" height="14" rx="2" fill="none" stroke="#172384" stroke-width="1"/>
+        <text x="435" y="85" font-size="10" fill="#616686" text-anchor="middle">списано 2 з 1</text>
+        <line x1="470" y1="92" x2="470" y2="108" stroke="#cd6e12" stroke-width="1.5" marker-end="url(#o1)"/>
+        <rect x="350" y="112" width="170" height="36" rx="6" fill="#fdf6e4" stroke="#f7e5ac"/>
+        <text x="435" y="127" font-size="10.5" font-weight="700" fill="#cd6e12" text-anchor="middle">exception: +1 шт понад PO</text>
+        <text x="435" y="141" font-size="10" fill="#616686" text-anchor="middle">питання для Purchaser</text>
+        <text x="10" y="174" font-size="11.5" font-weight="600" fill="#172384">PO не змінюється: 1 шт × 549. Кожен рядок Invoice лишає слід.</text>
+      </svg>
+    </div>
+  </div>
+  <div class="slide-foot">Як документ класифікують і роутять на потрібну модель, так і кейс треба класифікувати і роутити на потрібну поведінку агента.</div>
+</section>
+
+<!-- ===================== 03 · КЕЙСИ ===================== -->
+<section class="slide">
+  <div class="eyebrow">03 · Кейси</div>
+  <h2 style="margin-bottom:18px">11 класів і що агент робить у кожному</h2>
+    <table class="mx">
+    <thead><tr><th style="width:3%">#</th><th style="width:30%">Клас кейсу</th><th style="width:15%">З прогону</th><th style="width:6%">Хто</th><th style="width:27%">Дія агента</th><th>Вирішує</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>1:1, кількість і ціна в tolerance</td><td>MacBook Air, 1 × 1 098</td><td><span class="wh rl">Rules</span></td><td><span class="act auto">Створити і провести</span></td><td>Agent</td></tr>
+      <tr><td>2</td><td>1 рядок PO → кілька рядків Invoice: партії</td><td>AirPods, 549 + 565</td><td><span class="wh ai">AI</span></td><td><span class="act note">Списати проти Receipts, з позначкою</span></td><td>Agent</td></tr>
+      <tr><td>3</td><td>Кілька рядків PO → 1 рядок Invoice: консолідація</td><td>—</td><td><span class="wh ai">AI</span></td><td><span class="act note">Звірити суму, з позначкою</span></td><td>Agent</td></tr>
+      <tr><td>4</td><td>Код айтема постачальника ≠ каталог. Для inventory лише точний айтем</td><td>MQKP3D/A → 00430</td><td><span class="wh ai">AI</span></td><td><span class="act note">Крослінк: прецедент → авто</span></td><td>Purchaser, потім Agent</td></tr>
+      <tr><td>5</td><td>Кількість більша за замовлену</td><td>AirPods, 2 замість 1</td><td><span class="wh rl">Rules</span></td><td><span class="act line">Зупинити рядок</span></td><td>Purchaser</td></tr>
+      <tr><td>6</td><td>Ціна поза tolerance</td><td>—</td><td><span class="wh rl">Rules</span></td><td><span class="act line">Зупинити рядок</span></td><td>Purchaser</td></tr>
+      <tr><td>7</td><td>Рядок поза PO: доставка, збір, податок</td><td>WEEE, 3 × 3.50</td><td><span class="wh ai">AI</span></td><td><span class="act note">Політика категорії: на GL або зупинити</span></td><td>AP team один раз, далі Agent</td></tr>
+      <tr><td>8</td><td>Рядок поза PO: товар</td><td>—</td><td><span class="wh ai">AI</span></td><td><span class="act line">Зупинити рядок, записати крослінк</span></td><td>Purchaser</td></tr>
+      <tr><td>9</td><td>Сумарний PO проти деталізованого Invoice</td><td>«Kitchen supplies»</td><td><span class="wh ai">AI</span></td><td><span class="act note">Списання за сумою в межах ліміту</span></td><td>Agent, понад ліміт Purchaser</td></tr>
+      <tr><td>10</td><td>PO не знайдено</td><td>—</td><td><span class="wh ai">AI</span></td><td><span class="act note">Автостворити → крок із налаштувань</span></td><td>Approver</td></tr>
+      <tr><td>11</td><td>Receipt ще не існує</td><td>—</td><td><span class="wh rl">Rules</span></td><td><span class="act wait">Стан очікування, не exception</span></td><td>System, auto-retry</td></tr>
+    </tbody>
+  </table>
+  <div class="legend">
+    <span class="act auto">авто</span><span class="act note">авто з позначкою</span><span class="act line">рішення по рядку</span><span class="act wait">стан</span><span style="margin-left:auto;display:flex;gap:14px;align-items:center"><span><span class="wh ai">AI</span>модель розуміє і пропонує, правила перевіряють</span><span><span class="wh rl">Rules</span>лише детерміновані правила</span></span>
+    
+  </div>
+</section>
+
+<!-- ===================== 04 · РИНОК ===================== -->
+<section class="slide">
+  <div class="eyebrow">04 · Market and competitors research</div>
+  <h2>Беремо з ринку лише те, що працює в SMB</h2>
+  <div class="src">
+    <div class="sh"><b>~140 джерел</b>документація, API, відкриті схеми, відгуки G2 і Capterra</div>
+    <div class="sg"><b>Enterprise AP</b>SAP S/4HANA, Ariba, Coupa, Basware, Medius</div>
+    <div class="sg"><b>ERP</b>Oracle, NetSuite, Dynamics 365, Odoo, ERPNext</div>
+    <div class="sg"><b>AI-first AP</b>Rossum, Vic.ai, Stampli, AppZen, Ramp</div>
+    <div class="sg"><b>SMB peers</b>Procurify, Spendesk, Payhawk, Zip, Precoro help centre</div>
+  </div>
+  <div class="boxh">Benchmarks</div>
+  <div class="tiles t-sm">
+    <div class="tile dim"><div class="v">32.6%</div><div class="l">Середній straight-through processing в AP. Best-in-class 49.2%. Аналітики Ardent Partners, 2025</div></div>
+    <div class="tile hot"><div class="v">97–99%</div><div class="l">Точність, яку обіцяють вендори. Розрив між цими числами і є продуктова проблема</div></div>
+    <div class="tile dim"><div class="v">47.6%</div><div class="l">Фінансистів вимагають повної аудитованості кожного рішення AI. Опитування AP-вендора Rillion</div></div>
+  </div>
+  <div class="two t-sm2">
+    <div>
+      <div class="boxh" style="color:var(--green-700)">Інсайти · беремо</div>
+      <ul class="list-plain">
+        <li>Рядок PO скрізь <strong>ledger</strong>, а не слот: Invoice списує залишок.</li>
+        <li>Invoice <strong>ніколи не переписує PO</strong>, 10 систем з 10. Різниця живе на Invoice.</li>
+        <li>Де партії різні, метчать <strong>Receipt</strong>, а не PO. SAP GR-based IV, Coupa MatchReference.</li>
+        <li>Автоматизація на <strong>прецеденті</strong>: 5 однакових випадків → правило. Rossum.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="boxh" style="color:var(--red-700)">Не беремо · це SMB, не SAP</div>
+      <ul class="list-plain list-x">
+        <li>SAP має 13 окремих порогів допуску. Нам вистачить 3: на ціну, кількість і суму.</li>
+        <li>Ariba має 37 типів розбіжностей. Нам вистачить 6 реальних.</li>
+        <li>Налаштування на 5 рівнях. У нас 2: для компанії і для окремого постачальника.</li>
+        <li>Окремі рахунки під різницю в цінах. Це робота ERP, не Precoro.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="concl"><span>Висновок</span>В ентерпрайзі точність тримається на налаштуваннях і людях, які їх ведуть. У SMB таких людей немає. <strong>Тому агент Precoro має сам вивести налаштування з того, як працює клієнт.</strong></div>
+  <div class="slide-foot">Повний research з джерелами: <em>Invoice-to-PO matching · competitive research</em>, окремий документ</div>
+</section>
+
+<!-- ===================== 05 · ПРИПУЩЕННЯ ===================== -->
+<section class="slide">
+  <div class="eyebrow">05 · Припущення</div>
+  <h2>Чого не мав і що перевірю першого дня</h2>
+  <p class="sub">Метод: залізти в мисметч, побачити, з чого він складався, і відділити фактори, на які можна впливати.</p>
+  <table class="as">
+    <thead><tr><th>Припущення</th><th>Що зміниться, якщо хибне</th><th>Як перевірю</th></tr></thead>
+    <tbody>
+      <tr><td>Класи 1–4, 7 і 10 дають ≥ 70% Invoices</td><td>Ціль 70% недосяжна без крослінку, політики зборів і автостворення без PO → вони йдуть першими, а не автономія</td><td><code>count(invoice) group by case_class, supplier, country</code> на останні 6 місяців мисметчів</td></tr>
+      <tr><td>Більшість мисметчів це ідентифікація айтема, не ціна</td><td>Порядок робіт: крослінк перед tolerance</td><td>Частка exception за типом: unmatched line / qty / price / non-PO</td></tr>
+      <tr><td>Постачальники повторювані: топ-20 дають ≥ 60% обсягу</td><td>Прецедент як тригер працює. Якщо хвіст довгий, confidence лишається головним</td><td><code>invoices per supplier</code>, кумулятивна частка</td></tr>
+      <tr><td>AP відкриває PDF майже на кожному автостворенному документі</td><td>Це база для метрики довіри. Якщо ні, довіра вже є і проблема лише в покритті</td><td>Логи відкриття вкладення на документах зі статусом AI</td></tr>
+      <tr><td>Структура Invoices за країною пояснює різницю US / COM</td><td>Окрема вісь у таксономії і окремі прецеденти на країну</td><td>Мисметчі by country × document layout</td></tr>
+    </tbody>
+  </table>
+  <div class="slide-foot">Якщо цифри інші, план змінюється в місці з другої колонки, а не весь</div>
+</section>
+
+<!-- ===================== 06 · РІШЕННЯ + ПРОТОТИП ===================== -->
+<section class="slide">
+  <div class="eyebrow">06 · Рішення</div>
+  <h2>Клікабельний прототип: exception живе на рядку</h2>
+  <div class="who">
+    <div class="w"><div class="n">AP team</div><div class="t">Бачить лише рядки, де потрібне рішення. Проблема в одному рядку не зупиняє весь Invoice.</div></div>
+    <div class="w"><div class="n">Purchaser</div><div class="t">1 рішення по 1 рядку. Жодне «так» не переписує PO.</div></div>
+    <div class="w"><div class="n">Customer Success</div><div class="t">На «чому агент так вирішив?» відповідь уже на рядку. Налаштування змінює без Dev team.</div></div>
+  </div>
+
+  <div class="proto" id="proto">
+    <div class="proto-l">
+      <div class="proto-top">
+        <div class="ttl">Invoice APL-2026-04512 <span>Apple · PO #7</span></div>
+        <span style="display:flex;align-items:center;white-space:nowrap"><span class="pill wr" id="p-pill">2 exceptions</span><button class="rst" id="p-reset" title="Reset the prototype">↺ Restart</button></span>
+      </div>
+      <table class="pl">
+        <thead><tr><th>Line</th><th class="r">Qty</th><th class="r">Price</th><th>Status</th></tr></thead>
+        <tbody id="p-rows">
+          <tr class="row" data-i="0"><td>MacBook Air 13" M3<span class="sku">MQKP3D/A → 00430</span></td><td class="r">1</td><td class="r">1 098.00</td><td><span class="st ok mc"><i>✓</i>precedent 7/5</span></td></tr>
+          <tr class="row" data-i="1"><td>AirPods Max, batch A<span class="sku">MWW23ZM/A → 00434</span></td><td class="r">1</td><td class="r">549.00</td><td><span class="st ok mc"><i>✓</i>SKU + price</span></td></tr>
+          <tr class="row" data-i="2"><td>AirPods Max, batch B<span class="sku">MWW23ZM/A → ?</span></td><td class="r">1</td><td class="r">565.00</td><td><span class="st ex"><i>!</i>batch split</span><span class="sgc" title="Agent suggestion ready"><svg viewBox="0 0 24 24" fill="#6b46d9" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg></span></td></tr>
+          <tr class="row" data-i="3"><td>Environmental fee, WEEE<span class="sku">WEEE-EU → ?</span></td><td class="r">3</td><td class="r">3.50</td><td><span class="st ex"><i>!</i>not on PO</span><span class="sgc" title="Agent suggestion ready"><svg viewBox="0 0 24 24" fill="#6b46d9" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg></span></td></tr>
+        </tbody>
+      </table>
+      <div class="proto-foot">
+        <span>To pay <b>2 667.00</b> · open lines <b id="p-var">2</b></span>
+        <span class="po">PO #7 <b>1 976.40 · unchanged</b></span>
+      </div>
+    </div>
+    <div class="proto-r">
+      <div class="ag-h">
+        <span class="ag-ic"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg></span>
+        <span class="nm">AI agent<small>Matching · Invoice → PO</small></span>
+        <span class="live"><i></i>4 lines checked</span>
+      </div>
+      <div class="ag-b" id="p-panel"></div>
+    </div>
+  </div>
+  <div class="slide-foot">Прототип на даних реального прогону. Primary action завжди пропозиція агента: так рахуємо activation.</div>
+</section>
+
+<!-- ===================== 07 · МОДЕЛЬ ДАНИХ ===================== -->
+<section class="slide">
+  <div class="eyebrow">07 · Мепінг айтемів і модель даних <span class="aud">Для Dev team · чернетка для discovery</span></div>
+  <h2>1 обʼєкт, якого бракує: алокація</h2>
+  <p class="sub" style="margin-bottom:12px">Зараз рядок Invoice привʼязується до рядка PO лише 1 до 1, тому зайвий рядок система дописує в PO. Алокація записує, яку частину рядка PO і Receipt оплачує кожен рядок Invoice. Для юзера: рішення по кожному рядку до Confirm, PO без змін і закривається сам, коли весь залишок списано.</p>
+  <div class="er">
+    <svg viewBox="0 0 1136 304" aria-hidden="true" font-family="Inter, sans-serif">
+      <defs><marker id="er-a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8e91a8"/></marker></defs>
+      <g stroke="#8e91a8" stroke-width="1.4" fill="none" marker-end="url(#er-a)">
+        <line x1="480" y1="166" x2="210" y2="116"/>
+        <line x1="568" y1="166" x2="568" y2="116"/>
+        <line x1="656" y1="166" x2="930" y2="116"/>
+        <line x1="443" y1="66" x2="276" y2="66"/>
+        <line x1="146" y1="172" x2="146" y2="116"/>
+        <line x1="272" y1="176" x2="870" y2="112" stroke-dasharray="4 4"/>
+        <line x1="866" y1="218" x2="764" y2="218"/>
+        <line x1="990" y1="172" x2="990" y2="116"/>
+      </g>
+      <rect x="20" y="20" width="252" height="92" rx="8" fill="#f0f1fa" stroke="#e0e3f7"/>
+      <text x="34" y="43" font-size="13.5" font-weight="700" fill="#172384">PO line</text>
+      <text x="34" y="65" font-size="12" fill="#1d2452">Що замовили і за скільки</text>
+      <text x="34" y="83" font-size="11.5" fill="#616686">qty_ordered · unit_price · qty_billed · …</text>
+      <rect x="443" y="20" width="250" height="92" rx="8" fill="#fff" stroke="#d2d3dc"/>
+      <text x="457" y="43" font-size="13.5" font-weight="700" fill="#1d2452">Receipt line</text>
+      <text x="457" y="65" font-size="12" fill="#1d2452">Скільки реально приїхало</text>
+      <text x="457" y="83" font-size="11.5" fill="#616686">receipt_id · po_line_id · qty_received · …</text>
+      <rect x="866" y="20" width="250" height="92" rx="8" fill="#fff" stroke="#d2d3dc"/>
+      <text x="880" y="43" font-size="13.5" font-weight="700" fill="#1d2452">Invoice line</text>
+      <text x="880" y="65" font-size="12" fill="#1d2452">Що виставив постачальник</text>
+      <text x="880" y="83" font-size="11.5" fill="#616686">vendor_code · qty · unit_price · …</text>
+      <rect x="380" y="166" width="380" height="112" rx="8" fill="#1d2452" stroke="#1d2452"/>
+      <text x="394" y="189" font-size="14" font-weight="700" fill="#fff">Allocation</text>
+      <rect x="480" y="176" width="44" height="17" rx="8.5" fill="#415ada" stroke="#415ada"/><text x="502" y="188.5" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">новий</text>
+      <text x="394" y="211" font-size="12" fill="#fff">Яку частину рядка PO і Receipt оплачує рядок Invoice</text>
+      <text x="394" y="229" font-size="11.5" fill="#b9bfe8">invoice_line_id · po_line_id · receipt_line_id · …</text>
+      <text x="394" y="246" font-size="11.5" fill="#b9bfe8">qty · amount · variance · source · …</text>
+      <rect x="20" y="172" width="252" height="92" rx="8" fill="#e1f6e9" stroke="#cdf1da"/>
+      <text x="34" y="195" font-size="13.5" font-weight="700" fill="#21743e">Supplier item mapping</text>
+      <rect x="200" y="182" width="44" height="17" rx="8.5" fill="#fff" stroke="#415ada"/><text x="222" y="194.5" font-size="10" font-weight="700" fill="#415ada" text-anchor="middle">новий</text>
+      <text x="34" y="217" font-size="12" fill="#1d2452">Вчиться з кожної правки людини</text>
+      <text x="34" y="235" font-size="11.5" fill="#616686">vendor_id · vendor_code · item_id · …</text>
+      <rect x="866" y="172" width="250" height="92" rx="8" fill="#fdf6e4" stroke="#f7e5ac"/>
+      <text x="880" y="195" font-size="13.5" font-weight="700" fill="#cd6e12">Exception</text>
+      <rect x="958" y="182" width="44" height="17" rx="8.5" fill="#fff" stroke="#415ada"/><text x="980" y="194.5" font-size="10" font-weight="700" fill="#415ada" text-anchor="middle">новий</text>
+      <text x="880" y="217" font-size="12" fill="#1d2452">Конкретне питання по рядку</text>
+      <text x="880" y="235" font-size="11.5" fill="#616686">type · owner · blocks_payment · …</text>
+      <text x="1116" y="300" font-size="11" fill="#616686" text-anchor="end">Відправна точка для discovery з архітекторами, не фінальна схема. Назви полів умовні.</text>
+    </svg>
+  </div>
+  <div class="inv">
+    <div class="i"><b>Гарантія 1</b>Ніщо в Invoice не змінює кількість, ціну чи суму рядка PO. Ніколи.</div>
+    <div class="i"><b>Гарантія 2</b>Перевірка перевиставлення йде проти суми всіх алокацій на рядок, не проти одного Invoice. 3 × «в межах» = 30% зверху.</div>
+  </div>
+  <div class="slide-foot">Виправлення мають покращувати базовий прохід. Для мепінгу це Supplier item mapping: правка людини стає записом і більше не питається. Той самий мепінг працює для PO з PDF і punchout, Receipt і Invoice.</div>
+</section>
+
+<!-- ===================== 08 · АГЕНТ ===================== -->
+<section class="slide">
+  <div class="eyebrow">08 · Агент</div>
+  <h2>AI пропонує, правила перевіряють і проводять</h2>
+  <p class="sub" style="margin-bottom:10px">Один рядок з прогону, AirPods B, від PDF до проведення. Гроші рухає лише детермінований шар.</p>
+  <div class="lanes">
+        <svg viewBox="0 0 1136 300" aria-hidden="true" font-family="Inter, sans-serif">
+        <defs><marker id="sw" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#616686"/></marker></defs>
+        <rect x="0" y="24" width="1136" height="94" rx="8" fill="#f0f1fa" opacity=".45"/>
+        <text x="14" y="69.0" font-size="15" font-weight="700" fill="#172384">AI</text>
+        <text x="14" y="86.0" font-size="10.5" fill="#616686">розуміє</text>
+        <rect x="0" y="122" width="1136" height="94" rx="8" fill="#e8e9ee" opacity=".45"/>
+        <text x="14" y="167.0" font-size="15" font-weight="700" fill="#1d2452">Rules</text>
+        <text x="14" y="184.0" font-size="10.5" fill="#616686">перевіряє</text>
+        <rect x="0" y="220" width="1136" height="74" rx="8" fill="#fdf6e4" opacity=".45"/>
+        <text x="14" y="255.0" font-size="15" font-weight="700" fill="#cd6e12">Людина</text>
+        <text x="14" y="272.0" font-size="10.5" fill="#616686">вирішує exception</text>
+        <text x="164.0" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">1 · ПРОЧИТАТИ</text>
+        <text x="293.5" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">2 · КЛАСИФІКУВАТИ</text>
+        <text x="423.0" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">3 · ЗАПРОПОНУВАТИ</text>
+        <text x="552.5" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">4 · ПЕРЕВІРИТИ</text>
+        <text x="682.0" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">5 · ПОЯСНИТИ</text>
+        <text x="811.5" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">6 · ВИРІШИТИ</text>
+        <text x="941.0" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">7 · ПРОВЕСТИ</text>
+        <text x="1070.5" y="15" font-size="10.5" font-weight="700" fill="#8e91a8" text-anchor="middle" letter-spacing=".06em">8 · НАВЧИТИСЬ</text>
+        <path d="M223.0,71.0 H233.5" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M352.5,71.0 H363.0" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M482.0,71.0 H487.5 V169.0 H492.5" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M611.5,169.0 H617.0 V71.0 H622.0" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M741.0,71.0 H746.5 V257.0 H751.5" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M870.5,257.0 H876.0 V169.0 H881.0" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <path d="M1000.0,169.0 H1005.5 V71.0 H1010.5" fill="none" stroke="#616686" stroke-width="1.4" marker-end="url(#sw)"/>
+        <rect x="105.0" y="30" width="118" height="82" rx="6" fill="#fff" stroke="#8d9ce9" stroke-width="1.2"/>
+        <text x="113.0" y="47" font-size="11" fill="#1d2452">batch B / lot 2508</text>
+        <text x="113.0" y="61" font-size="11" fill="#1d2452">565.00 + нотатка</text>
+        <text x="113.0" y="75" font-size="11" fill="#1d2452">про 2 партії</text>
+        <text x="113.0" y="104" font-size="8.8" font-weight="600" fill="#172384" font-family="ui-monospace, Menlo, monospace">extract()</text>
+        <rect x="234.5" y="30" width="118" height="82" rx="6" fill="#fff" stroke="#8d9ce9" stroke-width="1.2"/>
+        <text x="242.5" y="47" font-size="11" fill="#1d2452">той самий айтем,</text>
+        <text x="242.5" y="61" font-size="11" fill="#1d2452">що рядок 2</text>
+        <text x="242.5" y="75" font-size="11" fill="#1d2452">→ клас 2 · 0.93</text>
+        <text x="242.5" y="104" font-size="8.8" font-weight="600" fill="#172384" font-family="ui-monospace, Menlo, monospace">classify()</text>
+        <rect x="364.0" y="30" width="118" height="82" rx="6" fill="#fff" stroke="#8d9ce9" stroke-width="1.2"/>
+        <text x="372.0" y="47" font-size="11" fill="#1d2452">1 шт на PO AirPods</text>
+        <text x="372.0" y="61" font-size="11" fill="#1d2452">з Receipt</text>
+        <text x="372.0" y="75" font-size="11" fill="#1d2452">DN-7741</text>
+        <text x="372.0" y="104" font-size="8.8" font-weight="600" fill="#172384" font-family="ui-monospace, Menlo, monospace">propose_allocation()</text>
+        <rect x="493.5" y="128" width="118" height="82" rx="6" fill="#fff" stroke="#bbbdcb" stroke-width="1.2"/>
+        <text x="501.5" y="145" font-size="11" fill="#1d2452">ledger: 1 → 2, +1</text>
+        <text x="501.5" y="159" font-size="11" fill="#1d2452">ціна +2.9%</text>
+        <text x="501.5" y="173" font-size="11" fill="#1d2452">≤ tolerance 5%</text>
+        <text x="501.5" y="202" font-size="8.8" font-weight="600" fill="#1d2452" font-family="ui-monospace, Menlo, monospace">validate()</text>
+        <rect x="623.0" y="30" width="118" height="82" rx="6" fill="#fff" stroke="#8d9ce9" stroke-width="1.2"/>
+        <text x="631.0" y="47" font-size="11" fill="#1d2452">«Друга пара з тієї</text>
+        <text x="631.0" y="61" font-size="11" fill="#1d2452">ж поставки,</text>
+        <text x="631.0" y="75" font-size="11" fill="#1d2452">дорожча на 16»</text>
+        <text x="631.0" y="104" font-size="8.8" font-weight="600" fill="#172384" font-family="ui-monospace, Menlo, monospace">open_exception()</text>
+        <rect x="752.5" y="226" width="118" height="62" rx="6" fill="#fff" stroke="#f7e5ac" stroke-width="1.2"/>
+        <text x="760.5" y="243" font-size="11" fill="#1d2452">Purchaser:</text>
+        <text x="760.5" y="257" font-size="11" fill="#1d2452">приймаю</text>
+        <text x="760.5" y="280" font-size="8.8" font-weight="600" fill="#cd6e12" font-family="ui-monospace, Menlo, monospace">ask_human()</text>
+        <rect x="882.0" y="128" width="118" height="82" rx="6" fill="#fff" stroke="#bbbdcb" stroke-width="1.2"/>
+        <text x="890.0" y="145" font-size="11" fill="#1d2452">variance 16.00</text>
+        <text x="890.0" y="159" font-size="11" fill="#1d2452">заморожено,</text>
+        <text x="890.0" y="173" font-size="11" fill="#1d2452">PO без змін</text>
+        <text x="890.0" y="202" font-size="8.8" font-weight="600" fill="#1d2452" font-family="ui-monospace, Menlo, monospace">consume_receipt()</text>
+        <rect x="1011.5" y="30" width="118" height="82" rx="6" fill="#fff" stroke="#8d9ce9" stroke-width="1.2"/>
+        <text x="1019.5" y="47" font-size="11" fill="#1d2452">5-та така правка</text>
+        <text x="1019.5" y="61" font-size="11" fill="#1d2452">→ правило</text>
+        <text x="1019.5" y="75" font-size="11" fill="#1d2452">для Apple</text>
+        <text x="1019.5" y="104" font-size="8.8" font-weight="600" fill="#172384" font-family="ui-monospace, Menlo, monospace">write_xref()</text>
+        </svg>
+  </div>
+  <div class="split">
+    <div class="sp ai"><b>AI</b>Читає будь-який layout, класифікує рядок, пропонує алокацію, пояснює exception, узагальнює правки в правило. Сам нічого не проводить.</div>
+    <div class="sp rl"><b>Rules</b>Перевіряють суми, tolerance і залишок, проводять. Не зійшлось → назад до AI або людині. Прецедент ≥ 5 → без виклику моделі.</div>
+    <div class="sp no"><b>Ніколи</b>Переписати PO. Провести Invoice без PO в обхід approval. Вчитись з 1 правки. Мовчки викинути рядок.</div>
+  </div>
+  <div class="fns-h">Функції продукту, які потрібні агенту · покривають усі 11 класів зі слайда 03</div>
+  <div class="fns"><div class="fn"><div class="fh"><b>Supplier item mapping</b><span>кл. 4, 8</span></div><div class="fd">Код постачальника → айтем, скрізь</div></div><div class="fn"><div class="fh"><b>Allocation</b><span>кл. 2, 3, 9</span></div><div class="fd">Списує частину рядка PO: к-сть чи сума</div></div><div class="fn"><div class="fh"><b>Exception на рядку</b><span>кл. 5, 6, 8</span></div><div class="fd">Причина, власник, чи блокує оплату</div></div><div class="fn"><div class="fh"><b>Політика зборів</b><span>кл. 7</span></div><div class="fd">Доставка, збори, податки → GL або стоп</div></div><div class="fn"><div class="fh"><b>Auto-create без PO</b><span>кл. 10</span></div><div class="fd">Лише коли в PO немає кандидата</div></div><div class="fn"><div class="fh"><b>Очікування Receipt</b><span>кл. 11</span></div><div class="fd">Чекає Receipt і сам повторює метч</div></div><div class="fn"><div class="fh"><b>Рівень довіри</b><span>усі</span></div><div class="fd">По постачальнику: shadow → авто</div></div><div class="fn"><div class="fh"><b>Rollback і «хто вирішив»</b><span>усі</span></div><div class="fd">У чернетку 1 дією, видно агент чи людина</div></div></div>
+</section>
+
+<!-- ===================== 09 · ДОВІРА ===================== -->
+<section class="slide">
+  <div class="eyebrow">09 · Довіра юзерів</div>
+  <h2>Довіра до агента росте крок за кроком</h2>
+  <p class="sub">Агент працює як новий помічник: йому делегують частину роботи, він показує, що зробив і чому, а втрутитися й перевірити можна в 1 клік. Більше свободи він отримує окремо по кожному постачальнику.</p>
+  <div class="ladder">
+    <div class="rung"><div class="lvl">0 · Observe</div><div class="t">Shadow mode</div><div class="d">Агент пропонує, нічого не пише. Поруч те, що зробила людина. Згода рахується по постачальнику.</div><div class="in"><b>Вхід:</b> з першого дня, для всіх</div></div>
+    <div class="rung"><div class="lvl">1 · Suggest</div><div class="t">Заповнює, людина підтверджує</div><div class="d">Кожен рядок підтверджується. Сірі ✓ стають зеленими.</div><div class="in"><b>Вхід:</b> згода ≥ 90% на 20 Invoices</div></div>
+    <div class="rung"><div class="lvl">2 · Auto + exceptions</div><div class="t">Чисті рядки проводяться</div><div class="d">Спливають лише винятки. Проблемний рядок не зупиняє весь Invoice.</div><div class="in"><b>Вхід:</b> ≥ 95% на 30, ≤ 1 правка на 10</div></div>
+    <div class="rung"><div class="lvl">3 · Auto-create</div><div class="t">Створює і проводить у межах</div><div class="d">Ліміт суми і категорій задає CS. Invoice без PO лише створює і шле на крок із налаштувань.</div><div class="in"><b>Вхід:</b> ≥ 98% на 50. <b>Рівень нижче</b> з будь-якого рівня: 3 правки поспіль</div></div>
+  </div>
+  <div class="t9">
+    <div class="t9l">
+      <div class="tb"><b>Видно, хто вирішив</b><span class="tick grey">✓</span>агент: прецедент, правило або впевненість моделі. <span class="tick green">✓</span>людина: імʼя і час.</div>
+      <div class="tb"><b>Rollback</b>Автостворений документ повертається в чернетку 1 дією. Історія рішень лишається.</div>
+      <div class="tb"><b>Що каже Customer Success</b>«Агент не вгадував, ось правило. Виправте, і після 5 однакових правок він більше не спитає.»</div>
+    </div>
+    <div class="wk">
+      <div class="wk-h"><span class="ag-ic"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg></span><span class="nm">AI agent · Weekly summary<small>Company INC · AP team</small></span><span class="wk-d">15–21 Sep</span></div>
+      <div class="wk-g">
+        <div class="wk-t"><div class="v">412 <small>of 480</small></div><div class="l">lines matched without you</div></div>
+        <div class="wk-t"><div class="v">≈ 5 h</div><div class="l">saved, at 45 sec per line</div></div>
+        <div class="wk-t"><div class="v">9</div><div class="l">supplier errors caught · <b>1 240.00</b> not overpaid</div></div>
+        <div class="wk-t"><div class="v">3</div><div class="l">your corrections became rules, won't ask again</div></div>
+      </div>
+      <div class="wk-f"><span><b>Apple</b> reached level 2: clean lines post automatically</span><span class="wk-b"><svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg>Review the week</span></div>
+    </div>
+  </div>
+  <div class="slide-foot">Не human in the loop на все. Людина в петлі лише там, де exception, і лише поки постачальник не заробив наступний рівень. Summary: приклад, цифри умовні.</div>
+</section>
+
+<!-- ===================== 10 · МЕТРИКИ ===================== -->
+<section class="slide">
+  <div class="eyebrow">10 · Success criteria</div>
+  <h2>70% автоматизації це активація помножена на якість</h2>
+  <div class="s10">
+    <div class="pyr">
+      <div class="tier-l">Outcome</div>
+      <div class="p-top"><div class="k">Adoption</div><div class="v">70%</div><div class="l">Invoices без ручного дотику</div><div class="s">до наступного кроку · 6-й місяць</div></div>
+      <div class="tier-l">Drivers</div>
+      <div class="p-mid">
+        <div class="pc act"><div class="k">Активація</div><div class="v">≥ 85%</div><div class="l">пропозицій агента прийнято</div></div>
+        <div class="px">×</div>
+        <div class="pc qual"><div class="k">Якість</div><div class="v">&lt; 10%</div><div class="l">автостворених переробила людина</div></div>
+      </div>
+      <div class="tier-l">Guardrails</div>
+      <div class="p-base">
+        <div class="pc"><div class="k">Довіра</div><div class="v">&lt; 30%</div><div class="l">«чистих» документів, де AP відкрив PDF</div></div>
+        <div class="pc"><div class="k">Шкода</div><div class="v">0</div><div class="l">PO переписано під Invoice</div></div>
+        <div class="pc"><div class="k">Швидкість</div><div class="v">≤ 1 day</div><div class="l">вік exception</div></div>
+      </div>
+    </div>
+    <div class="loop">
+      <div class="loop-h">Continuous discovery · перевірка через 3 місяці</div>
+      <div class="ls"><div class="n">1</div><div><b>Гіпотеза</b>Агент погоджується з людиною на ≥ 90% рядків у класах 1–4, 7 і 10, і ці класи дають ≥ 70% Invoices</div></div>
+      <div class="ls"><div class="n">2</div><div><b>Як міряємо</b>Точність: shadow mode, пропозиція агента поруч із рішенням людини на кожному документі. Ефект на adoption: rollout хвилями компаній у випадковому порядку, хвилі, що чекають, це контроль</div></div>
+      <div class="ls"><div class="n">3</div><div><b>Ітерація</b>До 200 документів на клас кейсу або 6 тижнів. Спершу shadow + крослінк, потім алокація + exception</div></div>
+      <div class="ls chk"><div class="n">4</div><div><b>Чек-дата · місяць 3</b><span class="wf"><i class="win">WIN</i>переробки &lt; 10%, PDF відкривають рідше</span><span class="wf"><i class="fail">FAIL</i>переробки ≥ 20% або PDF ≥ 50%</span></div></div>
+      <div class="ls nxt"><div class="n">5</div><div><b>Наступний крок</b><span class="wf"><i class="win">WIN</i>автономія по постачальнику, слайд 09</span><span class="wf"><i class="fail">FAIL</i>назад до класів кейсів, слайд 03, а не «більше моделі»</span></div></div>
+    </div>
+  </div>
+  <div class="slide-foot">Adoption без метрики переробок це самообман: 70% з 20% переробок гірше за 50% чистих. Цілі умовні, калібруються на shadow mode.</div>
+</section>
+
+
+
+</div>
+</div>
+
+
+<div id="chrome"><div id="bar"><i></i></div></div>
+<div id="nav">
+  <button id="prev" title="Previous (←)">&#8249;</button>
+  <span class="count" id="count">1 / 1</span>
+  <button id="next" title="Next (→)">&#8250;</button>
+</div>
+<div id="hint">← → навігація · P друк</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var i = 0;
+
+  // number only the ten content slides
+  var n = 0;
+  slides.forEach(function(s){
+    if(s.hasAttribute('data-nonum')) return;
+    n++;
+    var tag = document.createElement('div');
+    tag.className = 'slide-no';
+    tag.textContent = String(n).padStart(2,'0') + ' / 10';
+    s.appendChild(tag);
+  });
+
+  function show(k){
+    i = Math.max(0, Math.min(slides.length - 1, k));
+    slides.forEach(function(s, idx){ s.classList.toggle('active', idx === i); });
+    document.getElementById('count').textContent = (i+1) + ' / ' + slides.length;
+    document.querySelector('#bar > i').style.width = ((i+1)/slides.length*100) + '%';
+    if(location.hash !== '#' + i) history.replaceState(null, '', '#' + i);
+  }
+
+  function fit(){
+    var pad = 24;
+    var sx = (window.innerWidth - pad) / 1280;
+    var sy = (window.innerHeight - pad) / 720;
+    document.getElementById('deck').style.transform = 'scale(' + Math.min(sx, sy, 1.35) + ')';
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); show(i+1); }
+    else if(e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i-1); }
+    else if(e.key === 'Home') show(0);
+    else if(e.key === 'End') show(slides.length-1);
+    else if(e.key === 'p' || e.key === 'P') window.print();
+  });
+
+  document.getElementById('next').onclick = function(){ show(i+1); };
+  document.getElementById('prev').onclick = function(){ show(i-1); };
+
+  document.querySelectorAll('[data-go]').forEach(function(el){
+    el.addEventListener('click', function(){
+      // agenda item N maps to content slide N; cover + agenda occupy 0 and 1
+      show(parseInt(el.getAttribute('data-go'), 10));
+    });
+  });
+
+  window.addEventListener('resize', fit);
+  fit();
+  show(parseInt((location.hash || '#0').slice(1), 10) || 0);
+})();
+
+/* ---------------- prototype: exception per line, agent-first ---------------- */
+(function(){
+  var rows = document.querySelectorAll('#p-rows .row');
+  var panel = document.getElementById('p-panel');
+  var pill = document.getElementById('p-pill');
+  var pvar = document.getElementById('p-var');
+  var reset = document.getElementById('p-reset');
+  if(!rows.length) return;
+  var st0 = Array.prototype.map.call(rows, function(r){ return r.querySelector('td:last-child').innerHTML; });
+  var sk0 = Array.prototype.map.call(rows, function(r){ return r.querySelector('.sku').textContent; });
+  var SPW = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg>';
+  var SPV = '<svg viewBox="0 0 24 24" fill="#6b46d9" aria-hidden="true"><path d="M10 2.5l1.9 5.6 5.6 1.9-5.6 1.9L10 17.5l-1.9-5.6L2.5 10l5.6-1.9z"/><path d="M18.5 13l.95 2.55L22 16.5l-2.55.95L18.5 20l-.95-2.55L15 16.5l2.55-.95z"/></svg>';
+  var open = 2;
+
+  var L = [
+    { why: 'Clean match. Apple code MQKP3D/A mapped to 00430 on the last 7 Invoices. Precedent threshold is 5, so no confidence check was needed.',
+      ev: [['Precedent','MQKP3D/A → 00430 · 7 times · threshold 5'],['PO','00430 · ordered 1 · open 1'],['Price','1 098.00 = PO price']] },
+    { why: 'Matched on supplier SKU and price. Only 1 precedent so far, so a rule decided, not a precedent.',
+      ev: [['Rule','SKU + price · tolerance 0%'],['PO','00434 · ordered 1 · open 1'],['Precedent','1 of 5']] },
+    { why: 'Same item as line 2, second unit. DN-7741 shows <b>2 units arrived</b>, the PO ordered 1. Over the PO with no precedent: this is the Purchaser\'s call, not mine.',
+      ev: [['Receipt','DN-7741 · 2 units · 23.09'],['PO','00434 · ordered 1 · over by 1'],['Over PO','+565.00 · price +2.9%, within 5%'],['Precedent','0 of 5']],
+      acts: [
+        ['Send to Purchaser, decision ready','+565.00 over PO · Receipt confirms 2 units arrived'],
+        ['Hold line','pay the rest, decide later'],
+        ['Reject line','request a Credit note']
+      ],
+      doneCls: 'wt',
+      done: 'Sent to the Purchaser with the evidence. The rest of the Invoice moves on. PO #7 unchanged.',
+      pv: true,
+      st: '<span class="st wt"><i>→</i>waiting · Purchaser</span>', map: 'MWW23ZM/A → 00434' },
+    { why: 'Environmental fee, 3 units. The PO has no such line and never will. No fee policy is set for Apple yet.',
+      ev: [['Category','fee · WEEE'],['Policy','not set for Apple'],['Amount','10.50 net · 12.60 gross']],
+      acts: [
+        ['Accept: post to GL Environmental fees','and do it automatically for Apple next time'],
+        ['Spread across item lines','pro rata by amount'],
+        ['Reject line','request a Credit note']
+      ],
+      done: 'Posted to GL 6410. New Apple policy: <b>WEEE → GL, automatic</b>, editable by CS. No question next time. PO #7 unchanged.',
+      st: '<span class="st ok"><i>✓</i>posted · you</span>', map: 'WEEE-EU → GL 6410' }
+  ];
+
+  function nextOpen(from){
+    for(var k=1;k<=L.length;k++){ var j=(from+k)%L.length; if(L[j].acts && !L[j].resolved) return j; }
+    return -1;
+  }
+  function legend(){ return '<div class="hintp"><span class="tick grey">✓</span>agent &nbsp; <span class="tick green">✓</span>you</div>'; }
+  function intro(){
+    rows.forEach(function(r){ r.classList.remove('sel'); });
+    var h = '<div class="ph">What I did</div>'
+      + '<div class="why"><b>Matched 2 lines myself</b>, by precedent and by rule. <b>2 lines need a decision.</b> I prepared the next step for each.</div>'
+      + '<button class="btn ai" data-go="next">' + SPW + '<span>Review 2 suggestions</span><small>lines 3 and 4</small></button>'
+      + '<div class="why sm">Or click any line on the left to see why it has this status.</div>'
+      + legend();
+    panel.innerHTML = h; wire();
+  }
+  function allDone(){
+    return '<div class="done"><b>Your part is done.</b> Lines 1, 2, 4 go to Approval, line 3 waits for the Purchaser. PO #7 unchanged.</div>';
+  }
+  function render(i){
+    var d = L[i];
+    rows.forEach(function(r){ r.classList.toggle('sel', +r.dataset.i === i); });
+    var h = '<div class="ph">Line ' + (i+1) + ' · why</div>';
+    h += '<div class="why">' + d.why + '</div>';
+    h += '<div class="evid">' + d.ev.map(function(e){ return '<div class="e"><span class="k">'+e[0]+'</span><span>'+e[1]+'</span></div>'; }).join('') + '</div>';
+    if(d.resolved){
+      h += '<div class="done ' + (d.doneCls || '') + '">' + d.done + '</div>';
+      if(d.pv) h += '<div class="pv"><div class="k">Purchaser sees</div><div class="bb"><span class="fb k1">Keep 1 unit<small>+565.00 on PO #7</small></span><span class="fb">Return<small>request a Credit note</small></span></div></div>';
+      var n = nextOpen(i);
+      h += n >= 0 ? '<button class="btn ai" data-go="next">' + SPW + '<span>Next suggestion</span><small>' + open + ' left</small></button>' : allDone();
+    } else if(d.acts){
+      h += '<div class="acts">' + d.acts.map(function(a,k){
+        if(k===0) return '<button class="btn ai" data-act="0">' + SPW + '<span>' + a[0] + '<small>' + a[1] + '</small></span></button>';
+        return '<button class="btn" data-act="'+k+'">'+a[0]+'<small>'+a[1]+'</small></button>';
+      }).join('') + '</div>';
+    } else {
+      h += '<div class="hintp"><span class="tick grey">✓</span>Resolved by the agent. No action needed. You can open the PDF, but you don\'t have to, and that is the point.</div>';
+    }
+    panel.innerHTML = h; wire(i);
+  }
+  function wire(i){
+    panel.querySelectorAll('[data-go]').forEach(function(b){
+      b.addEventListener('click', function(){ var n = nextOpen(i === undefined ? -1 : i); if(n >= 0) render(n); });
+    });
+    panel.querySelectorAll('[data-act]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var d = L[i], k = +b.dataset.act;
+        if(k !== 0){ b.innerHTML = 'Prototype: only the suggested action works<small></small>'; return; }
+        d.resolved = true;
+        rows[i].querySelector('td:last-child').innerHTML = d.st;
+        rows[i].querySelector('.sku').textContent = d.map;
+        open--;
+        var waiting = L.some(function(x){ return x.resolved && x.pv; });
+        pill.textContent = open ? open + ' exception' + (open>1?'s':'') : (waiting ? '1 waiting · Purchaser' : 'all resolved');
+        pill.className = 'pill ' + (open ? 'wr' : (waiting ? 'wt' : 'ok'));
+        pvar.textContent = String(open);
+        render(i);
+      });
+    });
+  }
+  function restart(){
+    open = 2;
+    L.forEach(function(d){ d.resolved = false; });
+    rows.forEach(function(r,k){ r.querySelector('td:last-child').innerHTML = st0[k]; r.querySelector('.sku').textContent = sk0[k]; });
+    pill.textContent = '2 exceptions'; pill.className = 'pill wr';
+    pvar.textContent = '2';
+    intro();
+  }
+  reset.addEventListener('click', restart);
+  rows.forEach(function(r){ r.addEventListener('click', function(){ render(+r.dataset.i); }); });
+  restart();
+})();
+
+</script>
+</body>
+</html>
